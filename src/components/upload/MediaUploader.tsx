@@ -28,6 +28,7 @@ export default function MediaUploader({
 
   const {
     overlayMedia,
+    mainVideo,
     uploadMode,
     setOverlayMedia,
     updateMediaProgress,
@@ -40,6 +41,12 @@ export default function MediaUploader({
   ]
 
   const handleFileSelection = async (file: File) => {
+    // Check if main video is uploaded (required for overlay media)
+    if (!mainVideo?.videoUploadId) {
+      toast.error("Please upload the main video first before adding overlay media")
+      return
+    }
+
     // Determine media type
     const isImage = file.type.startsWith("image/")
     const isVideo = file.type.startsWith("video/")
@@ -170,6 +177,7 @@ export default function MediaUploader({
           duration: mediaFile.duration,
           format: mediaFile.type,
           fileKey: key,
+          videoUploadId: mainVideo?.videoUploadId, // Include main video record ID
         }),
       })
 
@@ -271,12 +279,12 @@ export default function MediaUploader({
             isDragging
               ? "border-primary bg-primary/5"
               : "border-muted-foreground/25 hover:border-muted-foreground/50",
-            isUploading && "opacity-50 cursor-not-allowed"
+            (isUploading || !mainVideo?.videoUploadId) && "opacity-50 cursor-not-allowed"
           )}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={handleClick}
+          onDragOver={mainVideo?.videoUploadId ? handleDragOver : undefined}
+          onDragLeave={mainVideo?.videoUploadId ? handleDragLeave : undefined}
+          onDrop={mainVideo?.videoUploadId ? handleDrop : undefined}
+          onClick={mainVideo?.videoUploadId ? handleClick : undefined}
         >
           <div className="space-y-2">
             <div className="mx-auto h-12 w-12 text-muted-foreground">
@@ -291,6 +299,10 @@ export default function MediaUploader({
             <div className="text-sm">
               {isUploading ? (
                 <span className="font-medium">Uploading...</span>
+              ) : !mainVideo?.videoUploadId ? (
+                <span className="font-medium text-muted-foreground">
+                  Upload main video first
+                </span>
               ) : (
                 <>
                   <span className="font-medium text-primary hover:text-primary/80">
@@ -356,11 +368,12 @@ export default function MediaUploader({
       {!overlayMedia && !isUploading && (
         <Button
           variant="outline"
-          onClick={handleClick}
+          onClick={mainVideo?.videoUploadId ? handleClick : undefined}
+          disabled={!mainVideo?.videoUploadId}
           className="w-full"
         >
           <Upload className="mr-2 h-4 w-4" />
-          Choose {getFileTypeText()}
+          {!mainVideo?.videoUploadId ? "Main Video Required" : `Choose ${getFileTypeText()}`}
         </Button>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useVideoWorkflowStore } from "@/lib/stores/video-workflow-store"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import useResponsiveWorkflow from "@/hooks/useResponsiveWorkflow"
 import VideoUploader from "./VideoUploader"
 import MediaUploader from "./MediaUploader"
@@ -58,9 +59,12 @@ export default function UploadPage() {
                     <div className="text-right">
                       <p className="text-sm font-medium capitalize">{mainVideo.status}</p>
                       {mainVideo.status === "uploading" && (
-                        <p className="text-sm text-muted-foreground">
-                          {mainVideo.uploadProgress}%
-                        </p>
+                        <div className="mt-1 space-y-1">
+                          <Progress value={mainVideo.uploadProgress} className="w-20" />
+                          <p className="text-xs text-muted-foreground">
+                            {mainVideo.uploadProgress}%
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>

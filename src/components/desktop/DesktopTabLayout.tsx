@@ -1,11 +1,11 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { useVideoWorkflowStore, WorkflowStep } from "@/lib/stores/video-workflow-store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Scissors, Settings, Zap, ArrowLeft, ArrowRight } from "lucide-react"
+import { Upload, Scissors, Settings, Zap, ArrowLeft, ArrowRight, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const steps = [
@@ -23,7 +23,7 @@ const steps = [
   },
   {
     id: "settings" as WorkflowStep,
-    title: "FFMPEG Settings",
+    title: "Animation Settings",
     description: "Configure overlay and effects",
     icon: Settings,
   },
@@ -41,35 +41,57 @@ interface DesktopTabLayoutProps {
 }
 
 export default function DesktopTabLayout({ children, className }: DesktopTabLayoutProps) {
+  const [isHydrated, setIsHydrated] = useState(false)
   const {
     currentStep,
     canProceedToStep,
     nextStep,
     previousStep,
-    setCurrentStep
+    setCurrentStep,
+    resetWorkflow
   } = useVideoWorkflowStore()
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   const currentStepIndex = steps.findIndex((step) => step.id === currentStep)
   const currentStepData = steps[currentStepIndex]
 
   const canGoNext = () => {
+    if (!isHydrated) return false
     const nextIndex = currentStepIndex + 1
     if (nextIndex >= steps.length) return false
     return canProceedToStep(steps[nextIndex].id)
   }
 
   const canGoPrevious = () => {
+    if (!isHydrated) return false
     return currentStepIndex > 0
   }
 
   return (
     <div className={cn("container mx-auto py-8 space-y-8", className)}>
       {/* Page Header */}
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-2 relative">
         <h1 className="text-3xl font-bold">Video Repurposing Workflow</h1>
         <p className="text-muted-foreground">
           Convert your horizontal videos to vertical format for social media
         </p>
+        {/* Restart Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (confirm("Are you sure you want to restart the workflow? This will clear all current progress.")) {
+              resetWorkflow()
+            }
+          }}
+          className="absolute top-0 right-0"
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Restart
+        </Button>
       </div>
 
       {/* Tab Navigation */}
@@ -86,7 +108,7 @@ export default function DesktopTabLayout({ children, className }: DesktopTabLayo
               const Icon = step.icon
               const isCompleted = index < currentStepIndex
               const isCurrent = index === currentStepIndex
-              const isAccessible = canProceedToStep(step.id)
+              const isAccessible = isHydrated ? canProceedToStep(step.id) : index <= 0
 
               return (
                 <div key={step.id} className="flex items-center">

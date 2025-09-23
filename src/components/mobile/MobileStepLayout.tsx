@@ -5,7 +5,7 @@ import { useVideoWorkflowStore, WorkflowStep } from "@/lib/stores/video-workflow
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, ArrowRight, Upload, Scissors, Settings, Zap } from "lucide-react"
+import { ArrowLeft, ArrowRight, Upload, Scissors, Settings, Zap, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const steps = [
@@ -25,7 +25,7 @@ const steps = [
   },
   {
     id: "settings" as WorkflowStep,
-    title: "FFMPEG Settings",
+    title: "Animation Settings",
     shortTitle: "Settings",
     description: "Configure overlay & effects",
     icon: Settings,
@@ -50,7 +50,8 @@ export default function MobileStepLayout({ children, className }: MobileStepLayo
     canProceedToStep,
     nextStep,
     previousStep,
-    setCurrentStep
+    setCurrentStep,
+    resetWorkflow
   } = useVideoWorkflowStore()
 
   const currentStepIndex = steps.findIndex((step) => step.id === currentStep)
@@ -115,12 +116,14 @@ export default function MobileStepLayout({ children, className }: MobileStepLayo
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleSkip}
-            disabled={currentStepIndex >= steps.length - 1}
+            onClick={() => {
+              if (confirm("Restart workflow? This will clear all progress.")) {
+                resetWorkflow()
+              }
+            }}
             className="flex items-center"
           >
-            Skip
-            <ArrowRight className="h-4 w-4 ml-1" />
+            <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
 

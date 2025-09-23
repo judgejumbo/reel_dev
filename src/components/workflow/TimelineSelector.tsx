@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
-import { Scissors, Clock } from "lucide-react"
+import { Scissors, Clock, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
 import VideoPreview from "./VideoPreview"
+import { toast } from "sonner"
 
 interface TimelineSelectorProps {
   className?: string
@@ -20,6 +21,7 @@ export default function TimelineSelector({ className }: TimelineSelectorProps) {
   const [localStartTime, setLocalStartTime] = useState(0)
   const [localEndTime, setLocalEndTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0)
 
   // Initialize values when video is loaded or clipSettings change
   useEffect(() => {
@@ -82,14 +84,24 @@ export default function TimelineSelector({ className }: TimelineSelectorProps) {
     setClipSettings(settings)
   }
 
-  const handlePresetLength = (lengthInSeconds: number) => {
-    const start = localStartTime
-    const end = Math.min(duration, start + lengthInSeconds)
-    setLocalEndTime(end)
-    updateClipSettings(start, end)
-  }
 
   const clipDuration = localEndTime - localStartTime
+  const isValidClip = clipDuration > 0 && clipDuration <= duration
+
+  const handleSelectClip = () => {
+    if (isValidClip) {
+      updateClipSettings(localStartTime, localEndTime)
+      toast.success(`Clip selected: ${formatTime(clipDuration)} duration`)
+    }
+  }
+
+  const handleSetStartToCurrent = () => {
+    const validStartTime = Math.max(0, Math.min(currentPlaybackTime, localEndTime - 0.1))
+    setLocalStartTime(validStartTime)
+    updateClipSettings(validStartTime, localEndTime)
+    toast.success(`Start time set to ${formatTime(validStartTime)}`)
+  }
+
 
   if (!mainVideo?.url) {
     return (
@@ -108,26 +120,42 @@ export default function TimelineSelector({ className }: TimelineSelectorProps) {
   }
 
   return (
-    <div className={cn("space-y-6", className)}>
-      {/* Video Preview */}
-      <VideoPreview />
+    <div className={cn("space-y-8", className)}>
+      {/* Video Preview - Smaller size for timeline view */}
+      <div className="max-w-3xl mx-auto">
+        <VideoPreview
+          className="max-h-96"
+          onTimeUpdate={setCurrentPlaybackTime}
+        />
+      </div>
 
       {/* Timeline Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Scissors className="mr-2 h-5 w-5" />
+      <Card className="shadow-lg border-2">
+        <CardHeader className="pb-6">
+          <CardTitle className="flex items-center text-xl">
+            <Scissors className="mr-3 h-6 w-6" />
             Clip Selection
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base mt-3">
             Select the start and end points for your video clip with 0.1 second precision
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-4">
           {/* Time Inputs */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="startTime">Start Time</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSetStartToCurrent}
+                  className="px-2 h-6"
+                  title="Set start time to current playback position"
+                >
+                  <MapPin className="h-3 w-3" />
+                </Button>
+              </div>
               <Input
                 id="startTime"
                 placeholder="0:00.0"
@@ -156,57 +184,53 @@ export default function TimelineSelector({ className }: TimelineSelectorProps) {
           </div>
 
           {/* Timeline Slider */}
-          <div className="space-y-4">
-            <Label>Timeline</Label>
-            <div className="space-y-2">
+          <div className="space-y-4 bg-muted/30 p-4 rounded-lg border">
+            <Label className="text-xl font-semibold flex items-center">
+              <Clock className="mr-2 h-5 w-5" />
+              Video Timeline
+            </Label>
+            <div className="space-y-4">
               <Slider
                 value={[localStartTime, localEndTime]}
                 onValueChange={handleTimelineChange}
                 max={duration}
                 step={0.1}
-                className="w-full"
+                className="w-full h-6"
                 minStepsBetweenThumbs={1}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0:00.0</span>
-                <span>{formatTime(duration)}</span>
-              </div>
             </div>
           </div>
 
-          {/* Preset Buttons */}
-          <div className="space-y-2">
-            <Label>Quick Presets</Label>
-            <div className="flex flex-wrap gap-2">
-              {[15, 30, 60, 90, 120].map((seconds) => (
-                <Button
-                  key={seconds}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePresetLength(seconds)}
-                  disabled={localStartTime + seconds > duration}
-                >
-                  {seconds < 60 ? `${seconds}s` : `${seconds / 60}m`}
-                </Button>
-              ))}
-            </div>
-          </div>
 
           {/* Summary */}
-          <div className="bg-muted p-4 rounded-lg">
-            <h4 className="font-semibold mb-2">Clip Summary</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Start:</span>
-                <span className="ml-2 font-mono">{formatTime(localStartTime)}</span>
+          <div className="bg-primary/10 border-2 border-primary/20 p-6 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xl font-bold flex items-center">
+                <Scissors className="mr-2 h-6 w-6" />
+                Clip Summary
+              </h4>
+              <Button
+                onClick={handleSelectClip}
+                disabled={!isValidClip}
+                size="lg"
+                className="px-6 py-3 text-base font-semibold"
+              >
+                <Scissors className="w-5 h-5 mr-2" />
+                Select This Clip
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-base">
+              <div className="bg-background p-4 rounded-lg">
+                <span className="text-muted-foreground font-medium block mb-1">Start Time:</span>
+                <span className="text-xl font-mono font-bold text-primary">{formatTime(localStartTime)}</span>
               </div>
-              <div>
-                <span className="text-muted-foreground">End:</span>
-                <span className="ml-2 font-mono">{formatTime(localEndTime)}</span>
+              <div className="bg-background p-4 rounded-lg">
+                <span className="text-muted-foreground font-medium block mb-1">End Time:</span>
+                <span className="text-xl font-mono font-bold text-primary">{formatTime(localEndTime)}</span>
               </div>
-              <div>
-                <span className="text-muted-foreground">Length:</span>
-                <span className="ml-2 font-mono">{formatTime(clipDuration)}</span>
+              <div className="bg-background p-4 rounded-lg">
+                <span className="text-muted-foreground font-medium block mb-1">Clip Length:</span>
+                <span className="text-xl font-mono font-bold text-green-600">{formatTime(clipDuration)}</span>
               </div>
             </div>
           </div>

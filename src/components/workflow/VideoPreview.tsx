@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { useVideoWorkflowStore } from "@/lib/stores/video-workflow-store"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
@@ -10,30 +10,101 @@ import ReactPlayer from "react-player"
 
 interface VideoPreviewProps {
   className?: string
+  onTimeUpdate?: (currentTime: number) => void
 }
 
-export default function VideoPreview({ className }: VideoPreviewProps) {
+export default function VideoPreview({ className, onTimeUpdate }: VideoPreviewProps) {
   const { mainVideo } = useVideoWorkflowStore()
+
+  // Extract only the URL string to prevent ReactPlayer from using File object
+  const videoUrl = useMemo(() => {
+    if (mainVideo?.url && typeof mainVideo.url === 'string' && mainVideo.url.startsWith('https://')) {
+      console.log('VideoPreview - Generated URL:', mainVideo.url)
+      return mainVideo.url
+    }
+    console.log('VideoPreview - No valid URL:', mainVideo?.url)
+    return null
+  }, [mainVideo?.url])
+
+  // Debug logging (reduced frequency)
+  useEffect(() => {
+    console.log('VideoPreview - mainVideo:', mainVideo)
+    console.log('VideoPreview - videoUrl:', videoUrl)
+    console.log('VideoPreview - mainVideo.file:', mainVideo?.file)
+  }, [mainVideo?.id, videoUrl])
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [seeking, setSeeking] = useState(false)
+  const [isToggling, setIsToggling] = useState(false)
+  const [useNativePlayer, setUseNativePlayer] = useState(true) // Start with native player for .m4v files
   const playerRef = useRef<ReactPlayer>(null)
+  const nativeVideoRef = useRef<HTMLVideoElement>(null)
 
-  const handlePlayPause = () => {
-    setPlaying(!playing)
+  // Handle video player errors silently
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason && event.reason.name === 'AbortError') {
+        event.preventDefault() // Prevent AbortError from showing in console
+      }
+    }
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection)
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+    }
+  }, [])
+
+  const handlePlayPause = async () => {
+    if (isToggling) return // Prevent rapid toggling
+
+    setIsToggling(true)
+
+    try {
+      if (useNativePlayer && nativeVideoRef.current) {
+        // Native video element
+        const video = nativeVideoRef.current
+        if (playing) {
+          video.pause()
+        } else {
+          await video.play().catch(() => {
+            console.log('Native video play failed')
+          })
+        }
+      } else {
+        // ReactPlayer - use state-based approach
+        if (playing) {
+          setPlaying(false)
+        } else {
+          setPlaying(true)
+        }
+      }
+    } catch (error) {
+      console.log('Play/pause error:', error)
+    }
+
+    setTimeout(() => {
+      setIsToggling(false)
+    }, 200)
   }
 
   const handleSeek = (time: number) => {
     setSeeking(true)
     setCurrentTime(time)
-    playerRef.current?.seekTo(time, "seconds")
+
+    if (useNativePlayer && nativeVideoRef.current) {
+      nativeVideoRef.current.currentTime = time
+    } else if (playerRef.current) {
+      playerRef.current.seekTo(time, "seconds")
+    }
+
     setTimeout(() => setSeeking(false), 100)
   }
 
   const handleProgress = ({ playedSeconds }: { playedSeconds: number }) => {
     if (!seeking) {
       setCurrentTime(playedSeconds)
+      onTimeUpdate?.(playedSeconds)
     }
   }
 
@@ -57,7 +128,7 @@ export default function VideoPreview({ className }: VideoPreviewProps) {
     handleSeek(newTime)
   }
 
-  if (!mainVideo?.url) {
+  if (!videoUrl) {
     return (
       <div className={cn("bg-muted rounded-lg flex items-center justify-center h-64", className)}>
         <p className="text-muted-foreground">Upload a video to preview</p>
@@ -69,16 +140,88 @@ export default function VideoPreview({ className }: VideoPreviewProps) {
     <div className={cn("space-y-4", className)}>
       {/* Video Player */}
       <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
-        <ReactPlayer
-          ref={playerRef}
-          url={mainVideo.url}
-          playing={playing}
-          onProgress={handleProgress}
-          onDuration={handleDuration}
-          width="100%"
-          height="100%"
-          controls={false}
-        />
+        {!useNativePlayer ? (
+          <ReactPlayer
+            ref={playerRef}
+            url={videoUrl}
+            playing={playing}
+            onProgress={handleProgress}
+            onReady={(player) => {
+              console.log('ReactPlayer ready, player:', player)
+              const duration = player.getDuration()
+              console.log('ReactPlayer duration:', duration)
+              if (duration) {
+                handleDuration(duration)
+              }
+            }}
+            onError={(error) => {
+              console.error('ReactPlayer error:', error)
+              console.log('Switching to native HTML5 video player')
+              setUseNativePlayer(true)
+            }}
+            onStart={() => {
+              console.log('ReactPlayer started')
+            }}
+            onPause={() => {
+              console.log('ReactPlayer paused')
+              if (playing) {
+                setPlaying(false)
+              }
+            }}
+            onPlay={() => {
+              console.log('ReactPlayer playing')
+              if (!playing) {
+                setPlaying(true)
+              }
+            }}
+            width="100%"
+            height="100%"
+            controls={false}
+            light={false}
+            pip={false}
+            config={{
+              file: {
+                attributes: {
+                  controlsList: 'nodownload',
+                  preload: 'metadata',
+                  crossOrigin: 'anonymous'
+                },
+                forceHLS: false,
+                forceVideo: true,
+                forceSafariHLS: false
+              }
+            }}
+          />
+        ) : (
+          <video
+            ref={nativeVideoRef}
+            src={videoUrl || undefined}
+            className="w-full h-full object-contain"
+            preload="metadata"
+            onLoadedMetadata={() => {
+              const video = nativeVideoRef.current
+              if (video) {
+                setDuration(video.duration)
+                console.log('Native video loaded, duration:', video.duration)
+              }
+            }}
+            onTimeUpdate={() => {
+              const video = nativeVideoRef.current
+              if (video && !seeking) {
+                setCurrentTime(video.currentTime)
+                onTimeUpdate?.(video.currentTime)
+              }
+            }}
+            onPlay={() => {
+              console.log('Native video playing')
+              setPlaying(true)
+            }}
+            onPause={() => {
+              console.log('Native video paused')
+              setPlaying(false)
+            }}
+          />
+        )}
 
         {/* Play/Pause Overlay */}
         <button

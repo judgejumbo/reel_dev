@@ -13,6 +13,7 @@ export interface VideoFile {
   url?: string
   uploadProgress: number
   status: "pending" | "uploading" | "uploaded" | "error"
+  videoUploadId?: string // Database record ID from upload completion
 }
 
 export interface MediaFile {
@@ -208,7 +209,14 @@ export const useVideoWorkflowStore = create<VideoWorkflowState>()(
             : null,
         })),
 
-      resetWorkflow: () => set(initialState),
+      resetWorkflow: () => {
+        // Clear localStorage persisted data
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('video-workflow-storage')
+        }
+        // Reset state to initial
+        set(initialState)
+      },
 
       canProceedToStep: (step) => {
         const state = get()

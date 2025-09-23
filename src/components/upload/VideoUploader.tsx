@@ -17,7 +17,7 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const { setMainVideo, updateVideoProgress, updateVideoStatus, uploadMode } = useVideoWorkflowStore()
+  const { setMainVideo, setOverlayMedia, updateVideoProgress, updateVideoStatus, uploadMode } = useVideoWorkflowStore()
 
   const handleFileSelection = async (file: File) => {
     // Validate file
@@ -58,7 +58,12 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
       if (type === "main") {
         setMainVideo(videoFile)
       } else {
-        setOverlayVideo(videoFile)
+        // Convert to MediaFile format for overlay
+        const mediaFile = {
+          ...videoFile,
+          mediaType: "video" as const
+        }
+        setOverlayMedia(mediaFile)
       }
 
       toast.success(`Video selected: ${file.name}`)
@@ -97,19 +102,35 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
 
       const { uploadURL, key, fileId } = await response.json()
 
-      // Upload file to R2
-      const uploadResponse = await fetch(uploadURL, {
-        method: "PUT",
-        body: videoFile.file,
-        headers: {
-          "Content-Type": videoFile.type,
-        },
+      // Create XMLHttpRequest for progress tracking
+      const xhr = new XMLHttpRequest()
+
+      // Set up progress tracking
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100)
+          updateVideoProgress(videoFile.id, percentComplete)
+        }
       })
 
-      if (!uploadResponse.ok) {
-        throw new Error("Failed to upload file")
-      }
+      // Upload file to R2 with progress tracking
+      const uploadPromise = new Promise<void>((resolve, reject) => {
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
+        }
 
+        xhr.onerror = () => reject(new Error('Upload failed'))
+
+        xhr.open('PUT', uploadURL)
+        xhr.setRequestHeader('Content-Type', videoFile.type)
+        xhr.send(videoFile.file)
+      })
+
+      await uploadPromise
       updateVideoStatus(videoFile.id, "uploaded")
       updateVideoProgress(videoFile.id, 100)
 
@@ -132,6 +153,19 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
       })
 
       if (completeResponse.ok) {
+        const result = await completeResponse.json()
+        if (type === "main" && result.videoUploadId) {
+          // Update the main video with the database record ID
+          // Remove the File object to prevent ReactPlayer from creating blob URLs
+          const updatedVideo = {
+            ...videoFile,
+            file: undefined, // Remove File object after upload
+            url: `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || 'https://pub-472f1ec592164dbf9983c4030ee2b224.r2.dev'}/${key}`,
+            videoUploadId: result.videoUploadId,
+            status: "uploaded" as const
+          }
+          setMainVideo(updatedVideo)
+        }
         toast.success(`${type} video uploaded successfully!`)
       } else {
         console.error("Failed to record upload in database")

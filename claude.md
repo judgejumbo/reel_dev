@@ -13,6 +13,8 @@ Video repurposing SaaS application built with Next.js 15 that converts horizonta
 - **Database**: Neon PostgreSQL with Drizzle ORM
 - **Styling**: Tailwind CSS v4 with custom CSS variables
 - **UI Components**: shadcn/ui components (MCP configured)
+- **State Management**: Zustand for video workflow state
+- **File Upload**: Native HTML5 drag & drop with Cloudflare R2
 - **Package Manager**: npm
 
 ## Development Commands
@@ -28,10 +30,8 @@ npm run db:studio    # Open Drizzle Studio
 
 ## Current Implementation Status
 
-✅ **Authentication System**: Complete NextAuth.js setup with email/password
-✅ **Database Schema**: Neon PostgreSQL with video processing workflow
-✅ **Protected Routes**: Dashboard with session management
-✅ **UI Components**: Login/register forms with shadcn/ui
+✅ **Phase 1 Complete**: Authentication system, database schema, protected routes
+✅ **Phase 2 Complete**: Video upload with drag & drop, R2 storage, workflow stepper
 
 ## Key Architecture
 
@@ -52,4 +52,5 @@ npm run db:studio    # Open Drizzle Studio
 - Always use shadcn MCP for UI components when building features
 - Database uses NextAuth.js compatible schema
 - Authentication routes: `/login`, `/register`, `/dashboard`
+- Video workflow routes: `/upload` (Phase 2)
 - N8N webhook configured for video processing

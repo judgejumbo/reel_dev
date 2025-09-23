@@ -13,7 +13,7 @@ import { createId } from "@paralleldrive/cuid2"
 
 // NextAuth.js Users table
 export const users = pgTable("users", {
-  id: text("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name"),
   email: text("email").notNull().unique(),
   emailVerified: timestamp("emailVerified", { mode: "date" }),
@@ -66,7 +66,7 @@ export const verificationTokens = pgTable("verificationToken", {
 
 // Subscription plans
 export const subscriptionPlans = pgTable("subscription_plans", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: varchar("name", { length: 100 }).notNull(), // free, basic, pro, enterprise
   monthlyPrice: decimal("monthly_price", { precision: 10, scale: 2 }),
   yearlyPrice: decimal("yearly_price", { precision: 10, scale: 2 }),
@@ -78,7 +78,7 @@ export const subscriptionPlans = pgTable("subscription_plans", {
 
 // User subscriptions
 export const userSubscriptions = pgTable("user_subscriptions", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").references(() => users.id).notNull(),
   planId: uuid("plan_id").references(() => subscriptionPlans.id).notNull(),
   status: varchar("status", { length: 50 }).notNull(), // active, cancelled, expired
@@ -90,7 +90,7 @@ export const userSubscriptions = pgTable("user_subscriptions", {
 
 // Video uploads - Step 1 of workflow
 export const videoUploads = pgTable("video_uploads", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").references(() => users.id).notNull(),
 
   // Main video file
@@ -115,7 +115,7 @@ export const videoUploads = pgTable("video_uploads", {
 
 // Clip settings - Steps 2 & 3 of workflow
 export const clipSettings = pgTable("clip_settings", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   videoUploadId: uuid("video_upload_id").references(() => videoUploads.id).notNull(),
 
   // Step 2: Clip length selection (0.1s precision)
@@ -139,7 +139,7 @@ export const clipSettings = pgTable("clip_settings", {
 
 // Processing jobs - Step 4 of workflow
 export const processingJobs = pgTable("processing_jobs", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   videoUploadId: uuid("video_upload_id").references(() => videoUploads.id).notNull(),
   clipSettingsId: uuid("clip_settings_id").references(() => clipSettings.id).notNull(),
 
@@ -164,7 +164,7 @@ export const processingJobs = pgTable("processing_jobs", {
 
 // Usage tracking for subscription limits
 export const usageTracking = pgTable("usage_tracking", {
-  id: uuid("id").primaryKey().$defaultFn(() => createId()),
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text("user_id").references(() => users.id).notNull(),
   month: integer("month").notNull(), // 1-12
   year: integer("year").notNull(),

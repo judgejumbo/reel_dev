@@ -17,11 +17,11 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const { setMainVideo, setOverlayVideo, updateVideoProgress, updateVideoStatus } = useVideoWorkflowStore()
+  const { setMainVideo, updateVideoProgress, updateVideoStatus, uploadMode } = useVideoWorkflowStore()
 
   const handleFileSelection = async (file: File) => {
     // Validate file
-    const validation = validateVideoFile(file)
+    const validation = validateVideoFile(file, uploadMode)
     if (!validation.isValid) {
       toast.error(validation.error)
       return
@@ -232,7 +232,7 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            MP4, MOV, AVI up to 500MB
+            MP4, MOV, AVI up to {uploadMode === "large" ? "2GB" : "500MB"}
           </p>
         </div>
       </div>

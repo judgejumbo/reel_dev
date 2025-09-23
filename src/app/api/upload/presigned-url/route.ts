@@ -35,11 +35,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate file type
-    const allowedTypes = ["video/mp4", "video/mov", "video/avi", "video/quicktime"]
+    // Validate file type based on upload type
+    let allowedTypes: string[] = []
+
+    if (type === "main") {
+      // Main video only accepts video files
+      allowedTypes = ["video/mp4", "video/mov", "video/avi", "video/quicktime"]
+    } else if (type === "overlay") {
+      // Overlay can accept both images and videos
+      allowedTypes = [
+        "video/mp4", "video/mov", "video/avi", "video/quicktime",
+        "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"
+      ]
+    }
+
     if (!allowedTypes.includes(contentType)) {
       return NextResponse.json(
-        { error: "Invalid file type. Only video files are allowed." },
+        { error: `Invalid file type for ${type} upload. Allowed types: ${allowedTypes.join(", ")}` },
         { status: 400 }
       )
     }

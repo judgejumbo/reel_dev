@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { useVideoWorkflowStore } from "@/lib/stores/video-workflow-store"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,6 +28,8 @@ interface ProcessingStepProps {
 }
 
 export default function ProcessingStep({ className }: ProcessingStepProps) {
+  const router = useRouter()
+  const { data: session } = useSession()
   const {
     mainVideo,
     overlayMedia,
@@ -42,6 +46,7 @@ export default function ProcessingStep({ className }: ProcessingStepProps) {
 
   const canStartProcessing = () => {
     return (
+      session?.user?.id &&
       mainVideo?.url &&
       clipSettings &&
       overlaySettings &&
@@ -57,12 +62,26 @@ export default function ProcessingStep({ className }: ProcessingStepProps) {
       setIsProcessing(true)
 
       // Generate N8N webhook payload
+      console.log("Environment variable:", process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL)
+      console.log("Window location origin:", window.location.origin)
+      const webhookBaseUrl = process.env.NEXT_PUBLIC_WEBHOOK_BASE_URL || window.location.origin
       const payload = generateN8NPayload(
-        "user-id", // Would get from auth session
-        `${window.location.origin}/api/webhook/complete`
+        session?.user?.id || "anonymous",
+        `${webhookBaseUrl}/api/webhook/complete`
       )
 
+      console.log("Webhook Base URL:", webhookBaseUrl)
+      console.log("Generated payload:", payload)
+      console.log("Project name:", projectName)
+      console.log("Session user ID:", session?.user?.id)
+
       if (!payload) {
+        console.error("Payload generation failed. State:", {
+          mainVideo: !!mainVideo?.url,
+          clipSettings: !!clipSettings,
+          overlaySettings: !!overlaySettings,
+          userId: session?.user?.id
+        })
         throw new Error("Failed to generate processing payload")
       }
 
@@ -84,11 +103,27 @@ export default function ProcessingStep({ className }: ProcessingStepProps) {
         body: JSON.stringify({
           payload,
           projectName,
+          webhookUrl: `${webhookBaseUrl}/api/webhook/complete`,
         }),
       })
 
       if (!response.ok) {
-        throw new Error("Failed to start processing")
+        const responseText = await response.text()
+        console.error("Processing API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          responseText,
+          url: response.url
+        })
+
+        let errorData: { error?: string } = {}
+        try {
+          errorData = JSON.parse(responseText)
+        } catch (e) {
+          console.error("Failed to parse error response as JSON:", responseText)
+        }
+
+        throw new Error(`Failed to start processing: ${response.status} ${errorData.error || response.statusText || responseText}`)
       }
 
       // Update job status
@@ -101,7 +136,7 @@ export default function ProcessingStep({ className }: ProcessingStepProps) {
       toast.success("Video processing started!")
 
       // Simulate progress updates (in real app, this would come from webhooks)
-      simulateProgress(job.id)
+      pollJobStatus(job.id)
 
     } catch (error) {
       console.error("Processing error:", error)
@@ -117,29 +152,57 @@ export default function ProcessingStep({ className }: ProcessingStepProps) {
     }
   }
 
-  const simulateProgress = (jobId: string) => {
-    let progress = 10
-    const interval = setInterval(() => {
-      progress += Math.random() * 20
+  const pollJobStatus = (jobId: string) => {
+    console.log("Starting to poll job:", jobId)
+    let hasCompleted = false // Flag to prevent multiple completion events
 
-      if (progress >= 100) {
-        progress = 100
-        setProcessingJob(prev => prev ? {
-          ...prev,
-          status: "completed",
-          progress: 100,
-          outputUrl: "https://pub-472f1ec592164dbf9983c4030ee2b224.r2.dev/processed-video.mp4",
-          thumbnailUrl: "https://pub-472f1ec592164dbf9983c4030ee2b224.r2.dev/thumbnail.jpg",
-        } : null)
-        clearInterval(interval)
-        toast.success("Video processing completed!")
-      } else {
-        setProcessingJob(prev => prev ? {
-          ...prev,
-          progress: Math.round(progress)
-        } : null)
+    const interval = setInterval(async () => {
+      try {
+        console.log("Polling job status for:", jobId)
+        const response = await fetch(`/api/processing/status/${jobId}`)
+
+        if (response.ok) {
+          const jobData = await response.json()
+          console.log("Job status response:", jobData)
+
+          setProcessingJob({
+            id: jobData.id,
+            status: jobData.status,
+            progress: jobData.progress || 0,
+            outputUrl: jobData.outputUrl,
+            thumbnailUrl: jobData.thumbnailUrl,
+            error: jobData.error,
+            projectName: projectName,
+          })
+
+          // If completed or failed, stop polling and show notification
+          if (jobData.status === "completed" && !hasCompleted) {
+            hasCompleted = true // Prevent multiple completion events
+            clearInterval(interval)
+            toast.success("Video processing completed!")
+            // Navigate to complete page
+            setTimeout(() => {
+              router.push("/complete")
+            }, 2000) // Small delay to show the toast
+          } else if (jobData.status === "failed" && !hasCompleted) {
+            hasCompleted = true // Prevent multiple failure events
+            console.log("Job failed! Stopping polling")
+            clearInterval(interval)
+            toast.error("Video processing failed!")
+          }
+        } else {
+          console.error("Failed to fetch job status:", response.status, response.statusText)
+        }
+      } catch (error) {
+        console.error("Error polling job status:", error)
       }
-    }, 1000)
+    }, 5000) // Poll every 5 seconds
+
+    // Clean up polling after 10 minutes (fallback)
+    setTimeout(() => {
+      console.log("Polling timeout reached, stopping polling")
+      clearInterval(interval)
+    }, 600000)
   }
 
   const formatTime = (seconds: number): string => {

@@ -17,7 +17,7 @@ interface TimelineSelectorProps {
 }
 
 export default function TimelineSelector({ className }: TimelineSelectorProps) {
-  const { mainVideo, clipSettings, setClipSettings } = useVideoWorkflowStore()
+  const { mainVideo, clipSettings, setClipSettings, nextStep } = useVideoWorkflowStore()
   const [localStartTime, setLocalStartTime] = useState(0)
   const [localEndTime, setLocalEndTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -90,8 +90,13 @@ export default function TimelineSelector({ className }: TimelineSelectorProps) {
 
   const handleSelectClip = () => {
     if (isValidClip) {
+      // Ensure clip settings are saved
       updateClipSettings(localStartTime, localEndTime)
-      toast.success(`Clip selected: ${formatTime(clipDuration)} duration`)
+
+      // Advance to next step (Animation Settings)
+      nextStep()
+
+      toast.success(`Clip selected: ${formatTime(clipDuration)} duration. Proceeding to Animation Settings.`)
     }
   }
 

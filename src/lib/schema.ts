@@ -137,29 +137,33 @@ export const clipSettings = pgTable("clip_settings", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
-// Processing jobs - Step 4 of workflow
+// Processing jobs - Step 4 of workflow (aligned with N8N workflow variables)
 export const processingJobs = pgTable("processing_jobs", {
-  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  videoUploadId: uuid("video_upload_id").references(() => videoUploads.id).notNull(),
-  clipSettingsId: uuid("clip_settings_id").references(() => clipSettings.id).notNull(),
+  // Primary identifiers (matches N8N workflow)
+  id: uuid("id").primaryKey(), // This will be the jobId from N8N
+  userId: text("user_id").notNull(), // matches N8N workflow
+  projectName: varchar("project_name", { length: 255 }).notNull(),
 
   // N8N webhook integration
-  webhookUrl: varchar("webhook_url", { length: 500 }),
-  externalJobId: varchar("external_job_id", { length: 255 }), // N8N job reference
+  webhookUrl: varchar("webhook_url", { length: 500 }).notNull(),
+
+  // Video segment settings (matches N8N workflow structure)
+  videoSegment: jsonb("video_segment").notNull(), // {startTime, endTime}
+
+  // Overlay configuration (matches N8N workflow structure)
+  overlayConfig: jsonb("overlay_config").notNull(), // {startVideoUrl, overlayImageUrl, appearAtSecond, etc.}
 
   // Processing status
-  status: varchar("status", { length: 50 }).notNull().default("queued"), // queued, processing, completed, failed
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // pending, processing, completed, failed
   progress: integer("progress").default(0), // 0-100
-  errorMessage: text("error_message"),
+  error: text("error"),
 
-  // Output
-  outputVideoUrl: varchar("output_video_url", { length: 500 }),
-  outputVideoSize: integer("output_video_size"), // bytes
-  processingTime: integer("processing_time"), // seconds
+  // Output (matches N8N workflow response)
+  outputUrl: varchar("output_url", { length: 500 }),
+  thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
 })
 
 // Usage tracking for subscription limits

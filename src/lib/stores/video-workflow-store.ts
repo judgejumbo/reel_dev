@@ -228,7 +228,7 @@ export const useVideoWorkflowStore = create<VideoWorkflowState>()(
           case "settings":
             return state.clipSettings !== null
           case "process":
-            return state.overlaySettings !== null && state.projectName.trim().length > 0
+            return state.overlaySettings !== null
           default:
             return false
         }

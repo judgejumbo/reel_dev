@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Upload, Scissors, Settings, Download } from "lucide-react"
+import { Check, Upload, Scissors, Settings, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { useVideoWorkflowStore, WorkflowStep } from "@/lib/stores/video-workflow-store"
@@ -19,16 +19,16 @@ const steps = [
     icon: Scissors,
   },
   {
-    id: "process" as WorkflowStep,
-    title: "Process",
-    description: "Convert to vertical",
+    id: "settings" as WorkflowStep,
+    title: "Settings",
+    description: "Configure overlay",
     icon: Settings,
   },
   {
-    id: "download" as WorkflowStep,
-    title: "Download",
-    description: "Get your video",
-    icon: Download,
+    id: "process" as WorkflowStep,
+    title: "Process",
+    description: "Convert to vertical",
+    icon: Zap,
   },
 ]
 

@@ -6,29 +6,48 @@ import { eq } from "drizzle-orm"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { jobId, status, outputUrl, thumbnailUrl, error } = body
+    const { jobId, status, progress, resultUrl, metadata, error } = body
 
     // Validate required fields
-    if (!jobId || !status) {
+    if (!jobId) {
       return NextResponse.json(
-        { error: "Missing required fields: jobId, status" },
+        { error: "Missing required field: jobId" },
         { status: 400 }
       )
     }
 
     // Update processing job in database
-    const updateData: any = {
-      status: status,
-      progress: status === "completed" ? 100 : 0,
+    const updateData: {
+      status?: string
+      progress?: number
+      outputUrl?: string
+      thumbnailUrl?: string
+      error?: string
+      updatedAt: Date
+    } = {
       updatedAt: new Date(),
     }
 
-    if (outputUrl) {
-      updateData.outputUrl = outputUrl
+    // Set status if provided
+    if (status) {
+      updateData.status = status
+      // Auto-set progress based on status if not explicitly provided
+      if (progress === undefined) {
+        updateData.progress = status === "completed" ? 100 : status === "processing" ? 10 : 0
+      }
     }
 
-    if (thumbnailUrl) {
-      updateData.thumbnailUrl = thumbnailUrl
+    // Set progress if provided
+    if (progress !== undefined) {
+      updateData.progress = Math.max(0, Math.min(100, progress))
+    }
+
+    if (resultUrl) {
+      updateData.outputUrl = resultUrl
+    }
+
+    if (metadata?.thumbnailUrl) {
+      updateData.thumbnailUrl = metadata.thumbnailUrl
     }
 
     if (error) {
@@ -48,8 +67,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Log completion for debugging
-    console.log(`Processing job ${jobId} completed with status: ${status}`)
+    // Log update for debugging
+    console.log(`Processing job ${jobId} updated:`, { status, progress, resultUrl, thumbnailUrl: metadata?.thumbnailUrl, error })
 
     return NextResponse.json({
       success: true,

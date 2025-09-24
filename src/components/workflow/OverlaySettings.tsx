@@ -5,7 +5,6 @@ import { useVideoWorkflowStore, OverlaySettings } from "@/lib/stores/video-workf
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -67,37 +66,40 @@ export default function OverlaySettings({ className }: OverlaySettingsProps) {
     }
   }, [overlaySettings, clipSettings])
 
-  // Update store when local settings change
-  useEffect(() => {
-    setOverlaySettings(settings)
-  }, [settings, setOverlaySettings])
+  // Only update store when user explicitly changes settings via UI controls
 
   const updateSetting = <K extends keyof OverlaySettings>(
     key: K,
     value: OverlaySettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+    const newSettings = { ...settings, [key]: value }
+    setSettings(newSettings)
+    setOverlaySettings(newSettings)
   }
 
   const handlePositionPreset = (preset: string) => {
     const position = positionPresets[preset as keyof typeof positionPresets]
     if (position) {
-      setSettings(prev => ({
-        ...prev,
+      const newSettings = {
+        ...settings,
         startPositionXPercent: position.x,
         startPositionYPercent: position.y,
-      }))
+      }
+      setSettings(newSettings)
+      setOverlaySettings(newSettings)
     }
   }
 
   const handleMovementPreset = (preset: string) => {
     const movement = movementPresets[preset as keyof typeof movementPresets]
     if (movement) {
-      setSettings(prev => ({
-        ...prev,
+      const newSettings = {
+        ...settings,
         horizontalSpeedPercent: movement.horizontal,
         verticalSpeedPercent: movement.vertical,
-      }))
+      }
+      setSettings(newSettings)
+      setOverlaySettings(newSettings)
     }
   }
 
@@ -153,7 +155,8 @@ export default function OverlaySettings({ className }: OverlaySettingsProps) {
                   <Slider
                     value={[settings.appearAtSecond]}
                     onValueChange={([value]) => updateSetting("appearAtSecond", value)}
-                    max={maxAppearTime}
+                    max={Math.max(maxAppearTime, 0.1)}
+                    min={0}
                     step={0.1}
                     className="w-full"
                   />
@@ -390,6 +393,7 @@ export default function OverlaySettings({ className }: OverlaySettingsProps) {
               </div>
             </div>
           </div>
+
         </CardContent>
       </Card>
     </div>

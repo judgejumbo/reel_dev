@@ -25,7 +25,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Menu, Upload, User, Settings, LogOut, Crown } from "lucide-react"
+import { Menu, Upload, User, Settings, LogOut, Crown, Plus } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 
 export function Navigation() {
@@ -113,14 +113,14 @@ export function Navigation() {
         {/* Right Side Actions */}
         <div className="flex flex-1 items-center justify-end space-x-2">
           {/* CTA Button */}
-          <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 sm:px-6">
+          <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-4 sm:px-6">
             <Link href={isAuthenticated ? "/create" : "/register"}>
-              <Upload className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">
-                {isAuthenticated ? "Create Project" : "Start Free"}
+                {isAuthenticated ? "Create New Project" : "Free To Start"}
               </span>
               <span className="sm:hidden">
-                {isAuthenticated ? "Create" : "Start Free"}
+                {isAuthenticated ? "New Project" : "Free To Start"}
               </span>
             </Link>
           </Button>
@@ -205,10 +205,10 @@ export function Navigation() {
               <div className="my-4 h-px bg-border" />
               <div className="flex flex-col space-y-2">
                 {/* Mobile CTA */}
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold justify-start">
+                <Button asChild className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold justify-start">
                   <Link href={isAuthenticated ? "/create" : "/register"}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isAuthenticated ? "Create New Project" : "Start Free"}
+                    <Plus className="w-4 h-4 mr-2" />
+                    {isAuthenticated ? "Create New Project" : "Free To Start"}
                   </Link>
                 </Button>
 

@@ -1,13 +1,7 @@
 import { redirect } from "next/navigation"
-import { auth } from "@/lib/auth"
-import UploadPage from "@/components/upload/UploadPage"
 
 export default async function Upload() {
-  const session = await auth()
-
-  if (!session) {
-    redirect("/login")
-  }
-
-  return <UploadPage />
+  // Redirect to the create page which handles project naming
+  // This maintains backward compatibility for any existing links
+  redirect("/create")
 }

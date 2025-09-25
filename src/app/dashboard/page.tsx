@@ -16,7 +16,8 @@ import {
   Clock,
   Crown,
   TrendingUp,
-  ArrowUpRight
+  ArrowUpRight,
+  Plus
 } from "lucide-react"
 
 export default function DashboardPage() {
@@ -203,10 +204,10 @@ export default function DashboardPage() {
                 <CardDescription>Get started quickly</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Link href="/upload" className="block">
+                <Link href="/create" className="block">
                   <Button className="w-full justify-start bg-emerald-600 hover:bg-emerald-700">
-                    <Upload className="mr-2 h-4 w-4" />
-                    Upload New Video
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create New Project
                   </Button>
                 </Link>
 
@@ -244,11 +245,11 @@ export default function DashboardPage() {
                 <div className="text-center py-8">
                   <VideoIcon className="mx-auto h-12 w-12 text-slate-400 mb-3" />
                   <p className="text-slate-600 font-medium">No videos processed yet</p>
-                  <p className="text-slate-500 text-sm">Upload your first video to get started</p>
-                  <Link href="/upload">
+                  <p className="text-slate-500 text-sm">Create your first project to get started</p>
+                  <Link href="/create">
                     <Button className="mt-4 bg-emerald-600 hover:bg-emerald-700">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload Video
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Your First Project
                     </Button>
                   </Link>
                 </div>

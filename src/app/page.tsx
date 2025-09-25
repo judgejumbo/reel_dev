@@ -24,7 +24,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold shadow-lg" asChild>
-                  <a href="/upload">Start Converting Free</a>
+                  <a href="/create">Start Free Project</a>
                 </Button>
                 <Button size="lg" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg" asChild>
                   <a href="#demo">Watch Success Stories</a>
@@ -243,7 +243,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-black px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-bold shadow-2xl" asChild>
-                  <a href="/upload">Start Converting Free</a>
+                  <a href="/create">Start Free Project</a>
                 </Button>
                 <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-green-600 px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-semibold" asChild>
                   <a href="#demo">See Success Stories</a>
@@ -319,7 +319,7 @@ export default function Home() {
             <div className="space-y-4">
               <h4 className="font-semibold text-white">Product</h4>
               <ul className="space-y-2 text-sm">
-                <li><a href="/upload" className="hover:text-white transition-colors">Video Upload</a></li>
+                <li><a href="/create" className="hover:text-white transition-colors">Create Project</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#" className="hover:text-white transition-colors">API</a></li>

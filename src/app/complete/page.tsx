@@ -28,14 +28,14 @@ export default function CompletePage() {
     if (!processingJob) {
       // Give it 2 seconds for the state to potentially load from persistence
       const timeout = setTimeout(() => {
-        router.push("/upload")
+        router.push("/create")
       }, 2000)
       setRedirectTimeout(timeout)
       return
     }
 
     if (processingJob.status !== "completed") {
-      router.push("/upload")
+      router.push("/create")
       return
     }
 
@@ -49,12 +49,12 @@ export default function CompletePage() {
   const handleRestart = () => {
     if (confirm("Start a new video workflow? This will clear your current results.")) {
       resetWorkflow()
-      router.push("/upload")
+      router.push("/create")
     }
   }
 
   const handleBackToWorkflow = () => {
-    router.push("/upload")
+    router.push("/create")
   }
 
   // Show loading state while waiting for processingJob to load
@@ -121,7 +121,7 @@ export default function CompletePage() {
               className="flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
-              Start New Project
+              Create Another Project
             </Button>
           </div>
         </div>

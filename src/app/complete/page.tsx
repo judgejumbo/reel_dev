@@ -31,7 +31,7 @@ export default function CompletePage() {
         router.push("/create")
       }, 2000)
       setRedirectTimeout(timeout)
-      return
+      return () => clearTimeout(timeout)
     }
 
     if (processingJob.status !== "completed") {
@@ -44,13 +44,13 @@ export default function CompletePage() {
       clearTimeout(redirectTimeout)
       setRedirectTimeout(null)
     }
-  }, [processingJob, router, redirectTimeout])
+  }, [processingJob, router]) // Removed redirectTimeout from dependencies to prevent infinite loop
 
   const handleRestart = () => {
-    if (confirm("Start a new video workflow? This will clear your current results.")) {
-      resetWorkflow()
-      router.push("/create")
-    }
+    // Reset workflow state first, then navigate
+    resetWorkflow()
+    // Use replace instead of push to prevent back button issues
+    router.replace("/create")
   }
 
   const handleBackToWorkflow = () => {

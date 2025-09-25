@@ -14,9 +14,14 @@ export default function CreateProject({ userId }: { userId: string }) {
   const router = useRouter()
   const [projectName, setProjectName] = useState("")
   const [projectStarted, setProjectStarted] = useState(false)
-  const { setProjectName: storeSetProjectName, resetWorkflow } = useVideoWorkflowStore()
+  const {
+    setProjectName: storeSetProjectName,
+    resetWorkflow,
+    mainVideo,
+    currentStep
+  } = useVideoWorkflowStore()
 
-  // Generate default project name
+  // Generate default project name on mount only
   useEffect(() => {
     if (!projectName) {
       const now = new Date()
@@ -54,6 +59,7 @@ export default function CreateProject({ userId }: { userId: string }) {
       hour12: false,
     }).replace(":", "")}`
     setProjectName(defaultName)
+    storeSetProjectName(defaultName)
   }
 
   if (!projectStarted) {

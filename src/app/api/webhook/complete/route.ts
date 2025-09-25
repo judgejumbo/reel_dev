@@ -6,7 +6,20 @@ import { eq } from "drizzle-orm"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { jobId, status, progress, resultUrl, metadata, error } = body
+
+    // Log the entire webhook payload for debugging
+    console.log("🔵 WEBHOOK COMPLETE - Full payload:", JSON.stringify(body, null, 2))
+
+    // Try multiple possible field names N8N might use
+    const jobId = body.jobId
+    const status = body.status
+    const progress = body.progress
+    const resultUrl = body.resultUrl || body.result_url || body.outputUrl || body.output_url || body.url
+    const metadata = body.metadata
+    const error = body.error
+
+    // Log what we extracted
+    console.log("🟡 Extracted values:", { jobId, status, resultUrl })
 
     // Validate required fields
     if (!jobId) {

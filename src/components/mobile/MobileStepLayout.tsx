@@ -134,6 +134,64 @@ export default function MobileStepLayout({ children, className }: MobileStepLayo
             {currentStepData?.description}
           </p>
         </div>
+
+        {/* Tab Navigation - Horizontal Scrollable */}
+        <div className="bg-muted/50 border-t">
+          <div className="overflow-x-auto scrollbar-hide">
+            <div className="flex items-center min-w-max px-2 py-2">
+              {steps.map((step, index) => {
+                const Icon = step.icon
+                const isCompleted = index < currentStepIndex
+                const isCurrent = index === currentStepIndex
+                const isAccessible = canProceedToStep(step.id)
+
+                return (
+                  <div key={step.id} className="flex items-center">
+                    <button
+                      onClick={() => isAccessible ? setCurrentStep(step.id) : undefined}
+                      disabled={!isAccessible}
+                      className={cn(
+                        "flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors min-w-fit",
+                        isCurrent
+                          ? "bg-primary text-primary-foreground"
+                          : isCompleted
+                          ? "bg-green-100 text-green-700 hover:bg-green-200"
+                          : isAccessible
+                          ? "bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "bg-background text-muted-foreground/50",
+                        !isAccessible && "cursor-not-allowed"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-5 h-5 rounded-full flex items-center justify-center text-xs",
+                        isCurrent
+                          ? "bg-primary-foreground/20"
+                          : isCompleted
+                          ? "bg-green-600 text-white"
+                          : "bg-muted-foreground/20"
+                      )}>
+                        {isCompleted ? (
+                          "✓"
+                        ) : (
+                          <Icon className="w-3 h-3" />
+                        )}
+                      </div>
+                      <span className="text-xs font-medium whitespace-nowrap">
+                        {step.shortTitle}
+                      </span>
+                    </button>
+                    {index < steps.length - 1 && (
+                      <div className={cn(
+                        "w-8 h-0.5 mx-1",
+                        index < currentStepIndex ? "bg-primary" : "bg-muted-foreground/20"
+                      )} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* Main Content - Scrollable */}

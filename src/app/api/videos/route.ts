@@ -34,18 +34,18 @@ export async function GET(request: NextRequest) {
       .from(processingJobs)
       .where(eq(processingJobs.userId, userId))
 
-    // For now, just get the most recent processing job for this user
-    // Since we only have one video and one job, this simple approach works
-    // In production, we'd need better matching logic
-    const mostRecentJob = processingJobsList
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .find(job => job.status === 'completed')
-
-    // Combine the data - each video upload gets at most one processing job
-    const formattedVideos = videoUploadsList.map((video, index) => {
-      // For now, assign the completed job to the first video
-      // This is a temporary fix for the demo
-      let matchingJob = index === 0 ? mostRecentJob : null
+    // Since we don't have a direct foreign key relationship,
+    // we'll match based on creation time proximity and user
+    // A processing job created shortly after a video upload likely belongs to it
+    const formattedVideos = videoUploadsList.map((video) => {
+      // Find processing jobs created within 5 minutes after this video upload
+      const matchingJob = processingJobsList.find(job => {
+        const videoTime = video.createdAt.getTime()
+        const jobTime = job.createdAt.getTime()
+        const timeDiff = jobTime - videoTime
+        // Job created 0-5 minutes after video upload
+        return timeDiff >= 0 && timeDiff <= 5 * 60 * 1000
+      })
 
       return {
         id: video.id,

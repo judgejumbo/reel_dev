@@ -67,10 +67,11 @@ function VideoPlayerWithToggle({
   getPresignedUrl: (url: string) => Promise<string>
 }) {
   const hasCompletedVideo = video.status === "completed" && video.outputUrl
-  const [showingSource, setShowingSource] = useState(false) // Always start with completed if available
+  const [showingSource, setShowingSource] = useState(!hasCompletedVideo) // Start with source if no completed video
   const [sourceUrl, setSourceUrl] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [videoError, setVideoError] = useState(false)
+
 
   // Load source URL once when component mounts
   useEffect(() => {
@@ -131,35 +132,39 @@ function VideoPlayerWithToggle({
 
   return (
     <div className="relative w-full h-full">
-      {/* Toggle buttons if completed video exists */}
-      {hasCompletedVideo && (
+      {/* Toggle buttons - show when either source or completed video exists */}
+      {(video.mainVideoUrl || hasCompletedVideo) && (
         <div className="absolute top-2 left-2 right-2 z-20 flex bg-black/70 rounded-lg p-1">
-          <button
-            onClick={() => {
-              console.log("Switching to source video")
-              setShowingSource(true)
-            }}
-            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-              showingSource
-                ? "bg-white text-black"
-                : "text-white hover:bg-white/20"
-            }`}
-          >
-            Source
-          </button>
-          <button
-            onClick={() => {
-              console.log("Switching to completed video")
-              setShowingSource(false)
-            }}
-            className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-              !showingSource
-                ? "bg-white text-black"
-                : "text-white hover:bg-white/20"
-            }`}
-          >
-            Completed
-          </button>
+          {video.mainVideoUrl && (
+            <button
+              onClick={() => {
+                console.log("Switching to source video")
+                setShowingSource(true)
+              }}
+              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                showingSource || !hasCompletedVideo
+                  ? "bg-white text-black"
+                  : "text-white hover:bg-white/20"
+              }`}
+            >
+              Source
+            </button>
+          )}
+          {hasCompletedVideo && (
+            <button
+              onClick={() => {
+                console.log("Switching to completed video")
+                setShowingSource(false)
+              }}
+              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                !showingSource
+                  ? "bg-white text-black"
+                  : "text-white hover:bg-white/20"
+              }`}
+            >
+              Completed
+            </button>
+          )}
         </div>
       )}
 
@@ -271,17 +276,6 @@ export default function VideoLibrary({ userId }: { userId: string }) {
       if (response.ok) {
         const data = await response.json()
         console.log("Fetched videos:", data)
-        // Log first video details to debug
-        if (data.length > 0) {
-          console.log("First video details:", {
-            id: data[0].id,
-            projectName: data[0].projectName,
-            thumbnailUrl: data[0].thumbnailUrl,
-            outputUrl: data[0].outputUrl,
-            mainVideoUrl: data[0].mainVideoUrl,
-            status: data[0].status
-          })
-        }
         setVideos(data)
         setDataLoaded(true)
       } else {

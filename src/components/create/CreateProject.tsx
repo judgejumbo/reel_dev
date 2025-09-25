@@ -33,6 +33,8 @@ export default function CreateProject({ userId }: { userId: string }) {
   }, [])
 
   const handleStartProject = () => {
+    // Reset any existing workflow state first
+    resetWorkflow()
     // Store project name in zustand store
     storeSetProjectName(projectName)
     setProjectStarted(true)

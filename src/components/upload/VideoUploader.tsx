@@ -17,7 +17,7 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const { setMainVideo, setOverlayMedia, updateVideoProgress, updateVideoStatus, uploadMode } = useVideoWorkflowStore()
+  const { setMainVideo, setOverlayMedia, updateVideoProgress, updateVideoStatus, uploadMode, projectName } = useVideoWorkflowStore()
 
   const handleFileSelection = async (file: File) => {
     // Validate file
@@ -149,6 +149,7 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
           format: videoFile.type,
           resolution: "1920x1080", // We'll get this from metadata later
           fileKey: key,
+          projectName: projectName, // Include the project name from Zustand store
         }),
       })
 

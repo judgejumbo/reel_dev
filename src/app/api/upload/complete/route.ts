@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       resolution,
       fileKey, // R2 file key instead of full URL
       videoUploadId, // For overlay videos, this should be the existing record ID
+      projectName, // User-entered project name from Zustand store
     } = body
 
     // Validate required fields

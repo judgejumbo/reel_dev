@@ -100,8 +100,8 @@ export function Navigation() {
                 </NavigationMenuItem>
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild>
-                    <Link href="/upload" className="group inline-flex h-10 w-max items-center justify-center rounded-lg border-2 border-emerald-200 bg-white/80 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-slate-700 hover:text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
-                      My Videos
+                    <Link href="/videos" className="group inline-flex h-10 w-max items-center justify-center rounded-lg border-2 border-emerald-200 bg-white/80 backdrop-blur-sm px-4 py-2 text-sm font-semibold text-slate-700 hover:text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100/70 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
+                      Video Library
                     </Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem>
@@ -114,13 +114,13 @@ export function Navigation() {
         <div className="flex flex-1 items-center justify-end space-x-2">
           {/* CTA Button */}
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 sm:px-6">
-            <Link href={isAuthenticated ? "/upload" : "/register"}>
+            <Link href={isAuthenticated ? "/create" : "/register"}>
               <Upload className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">
-                {isAuthenticated ? "Upload Video" : "Start Free"}
+                {isAuthenticated ? "Create Project" : "Start Free"}
               </span>
               <span className="sm:hidden">
-                {isAuthenticated ? "Upload" : "Start Free"}
+                {isAuthenticated ? "Create" : "Start Free"}
               </span>
             </Link>
           </Button>
@@ -206,9 +206,9 @@ export function Navigation() {
               <div className="flex flex-col space-y-2">
                 {/* Mobile CTA */}
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold justify-start">
-                  <Link href={isAuthenticated ? "/upload" : "/register"}>
+                  <Link href={isAuthenticated ? "/create" : "/register"}>
                     <Upload className="w-4 h-4 mr-2" />
-                    {isAuthenticated ? "Upload Video" : "Start Free"}
+                    {isAuthenticated ? "Create New Project" : "Start Free"}
                   </Link>
                 </Button>
 
@@ -239,7 +239,7 @@ export function Navigation() {
                       <Link href="/dashboard">Dashboard</Link>
                     </Button>
                     <Button variant="ghost" asChild className="justify-start text-slate-600 hover:text-emerald-700">
-                      <Link href="/upload">My Videos</Link>
+                      <Link href="/videos">Video Library</Link>
                     </Button>
                     <div className="my-2 h-px bg-border" />
                     <Button variant="ghost" asChild className="justify-start text-slate-600 hover:text-emerald-700">

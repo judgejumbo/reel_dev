@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+import VideoCard from "@/components/videos/VideoCard"
 import {
   Select,
   SelectContent,
@@ -24,23 +23,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
-// Removed router - no longer needed for Process button
 import {
   Search,
   Plus,
-  Download,
   Trash2,
-  Eye,
   Filter,
   CheckSquare,
   Square,
   Video,
-  Clock,
-  Calendar,
-  HardDrive,
-  AlertCircle,
   Loader2,
-  Play,
 } from "lucide-react"
 
 interface VideoProject {
@@ -58,175 +49,13 @@ interface VideoProject {
   selected?: boolean
 }
 
-// Component to display video with presigned URL and toggle
-function VideoPlayerWithToggle({
-  video,
-  getPresignedUrl
-}: {
-  video: any
-  getPresignedUrl: (url: string) => Promise<string>
-}) {
-  const hasCompletedVideo = video.status === "completed" && video.outputUrl
-  const [showingSource, setShowingSource] = useState(!hasCompletedVideo) // Start with source if no completed video
-  const [sourceUrl, setSourceUrl] = useState<string>("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [videoError, setVideoError] = useState(false)
-
-
-  // Load source URL once when component mounts
-  useEffect(() => {
-    let mounted = true
-
-    const loadSourceVideo = async () => {
-      // Always load the source URL if available
-      if (video.mainVideoUrl) {
-        try {
-          const presignedUrl = await getPresignedUrl(video.mainVideoUrl)
-          if (mounted) {
-            setSourceUrl(presignedUrl)
-            setVideoError(false) // Reset error state
-          }
-        } catch (error) {
-          console.error("Error loading source video:", error)
-          if (mounted) {
-            setSourceUrl("") // Clear on error
-          }
-        }
-      }
-    }
-
-    loadSourceVideo()
-
-    return () => {
-      mounted = false
-    }
-  }, [video.mainVideoUrl, getPresignedUrl]) // Only reload if video changes
-
-  // Determine which URL to show
-  let displayUrl = ""
-  if (hasCompletedVideo && !showingSource) {
-    displayUrl = video.outputUrl || ""
-    console.log("Showing completed video:", displayUrl)
-  } else if (showingSource && sourceUrl) {
-    displayUrl = sourceUrl
-    console.log("Showing source video:", displayUrl)
-  } else if (!hasCompletedVideo && sourceUrl) {
-    displayUrl = sourceUrl // Show source if no completed video
-    console.log("Showing source (no completed):", displayUrl)
-  } else {
-    console.log("No video URL available", { hasCompletedVideo, showingSource, sourceUrl, outputUrl: video.outputUrl })
-  }
-
-  // Reset error state when switching videos
-  useEffect(() => {
-    setVideoError(false)
-  }, [showingSource, displayUrl])
-
-  if (isLoading) {
-    return (
-      <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative w-full h-full">
-      {/* Toggle buttons - show when either source or completed video exists */}
-      {(video.mainVideoUrl || hasCompletedVideo) && (
-        <div className="absolute top-2 left-2 right-2 z-20 flex bg-black/70 rounded-lg p-1">
-          {video.mainVideoUrl && (
-            <button
-              onClick={() => {
-                console.log("Switching to source video")
-                setShowingSource(true)
-              }}
-              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                showingSource || !hasCompletedVideo
-                  ? "bg-white text-black"
-                  : "text-white hover:bg-white/20"
-              }`}
-            >
-              Source
-            </button>
-          )}
-          {hasCompletedVideo && (
-            <button
-              onClick={() => {
-                console.log("Switching to completed video")
-                setShowingSource(false)
-              }}
-              className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
-                !showingSource
-                  ? "bg-white text-black"
-                  : "text-white hover:bg-white/20"
-              }`}
-            >
-              Completed
-            </button>
-          )}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-        </div>
-      ) : videoError ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 p-4">
-          <Video className="w-8 h-8 text-slate-500 mb-2" />
-          <p className="text-xs text-slate-400 text-center">Unable to load video</p>
-          <button
-            onClick={() => {
-              setVideoError(false)
-              // Try to reload by toggling
-              setShowingSource(!showingSource)
-              setTimeout(() => setShowingSource(showingSource), 100)
-            }}
-            className="mt-2 text-xs text-emerald-500 hover:text-emerald-400"
-          >
-            Retry
-          </button>
-        </div>
-      ) : displayUrl ? (
-        <video
-          key={displayUrl} // Force reload when URL changes
-          src={displayUrl}
-          controls
-          controlsList="nodownload"
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-contain bg-black rounded"
-          style={{
-            maxHeight: '100%',
-            WebkitBorderRadius: '0.5rem',
-            WebkitMaskImage: '-webkit-radial-gradient(white, black)'
-          }}
-          onError={(e) => {
-            console.error("Video playback error:", e)
-            console.log("Failed URL:", displayUrl)
-            setVideoError(true)
-          }}
-          onLoadedMetadata={() => {
-            console.log("Video loaded successfully:", displayUrl)
-            setVideoError(false)
-          }}
-          onCanPlay={() => {
-            console.log("Video ready to play:", displayUrl)
-          }}
-          playsInline
-          muted
-          autoPlay={false}
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-          <Video className="w-12 h-12 text-slate-500" />
-        </div>
-      )}
-    </div>
-  )
+interface VideoLibraryProps {
+  userId: string
+  limit?: number
+  compact?: boolean
 }
 
-export default function VideoLibrary({ userId }: { userId: string }) {
+export default function VideoLibrary({ userId, limit, compact = false }: VideoLibraryProps) {
   const [videos, setVideos] = useState<VideoProject[]>([])
   const [isLoading, setIsLoading] = useState(false) // Don't block initial render
   const [dataLoaded, setDataLoaded] = useState(false)
@@ -237,7 +66,6 @@ export default function VideoLibrary({ userId }: { userId: string }) {
   const [videoToDelete, setVideoToDelete] = useState<VideoProject | null>(null)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [previewVideo, setPreviewVideo] = useState<VideoProject | null>(null)
   const [presignedUrls, setPresignedUrls] = useState<Map<string, string>>(new Map())
 
   // Function to get presigned URL for private videos
@@ -290,13 +118,18 @@ export default function VideoLibrary({ userId }: { userId: string }) {
   }
 
   // Filter videos based on search and status
-  const filteredVideos = videos.filter((video) => {
+  let filteredVideos = videos.filter((video) => {
     const matchesSearch = video.projectName
       .toLowerCase()
       .includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || video.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Apply limit if specified
+  if (limit) {
+    filteredVideos = filteredVideos.slice(0, limit)
+  }
 
   // Toggle video selection
   const toggleVideoSelection = (videoId: string) => {
@@ -318,22 +151,6 @@ export default function VideoLibrary({ userId }: { userId: string }) {
     }
   }
 
-  // Format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i]
-  }
-
-  // Format duration
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return "N/A"
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
 
   // Delete single video
   const handleDeleteVideo = async (video: VideoProject) => {
@@ -379,27 +196,14 @@ export default function VideoLibrary({ userId }: { userId: string }) {
     }
   }
 
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200"
-      case "processing":
-        return "bg-blue-100 text-blue-800 border-blue-200"
-      case "failed":
-        return "bg-red-100 text-red-800 border-red-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
 
   // Always render the page structure
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/30">
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div className={compact ? "" : "min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/30"}>
+      <div className={compact ? "" : "max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8"}>
         <div className="space-y-8">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          {/* Header - only show in non-compact mode */}
+          {!compact && (
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
                 Video Library
@@ -408,15 +212,10 @@ export default function VideoLibrary({ userId }: { userId: string }) {
                 Manage your repurposed video projects
               </p>
             </div>
-            <Link href="/create">
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Create New Project
-              </Button>
-            </Link>
-          </div>
+          )}
 
-          {/* Filters and Search */}
+          {/* Filters and Search - only show in non-compact mode */}
+          {!compact && (
           <Card className="border-emerald-200 bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -481,6 +280,7 @@ export default function VideoLibrary({ userId }: { userId: string }) {
               )}
             </CardHeader>
           </Card>
+          )}
 
           {/* Videos Grid */}
           {isLoading && videos.length === 0 ? (
@@ -520,125 +320,20 @@ export default function VideoLibrary({ userId }: { userId: string }) {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className={compact ? 'flex flex-wrap gap-6 justify-center' : 'grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}>
               {filteredVideos.map((video) => (
-                <Card
+                <VideoCard
                   key={video.id}
-                  className={`border-emerald-200 bg-white/80 backdrop-blur-sm hover:shadow-lg transition-shadow ${
-                    selectedVideos.has(video.id) ? "ring-2 ring-emerald-500" : ""
-                  }`}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <Checkbox
-                        checked={selectedVideos.has(video.id)}
-                        onCheckedChange={() => toggleVideoSelection(video.id)}
-                        className="mt-1"
-                      />
-                      <Badge className={getStatusColor(video.status)}>
-                        {video.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {/* Project Name */}
-                    <div className="pb-2">
-                      <h3 className="font-semibold text-lg text-slate-900">
-                        {video.projectName}
-                      </h3>
-                      <div className="flex items-center text-xs text-slate-500 mt-1 space-x-4">
-                        <span className="flex items-center">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {new Date(video.createdAt).toLocaleDateString()}
-                        </span>
-                        <span className="flex items-center">
-                          <HardDrive className="w-3 h-3 mr-1" />
-                          {formatFileSize(video.mainVideoSize)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Vertical Video Preview (9:16 aspect ratio) */}
-                    <div className="relative bg-black rounded-lg overflow-hidden mx-auto" style={{ maxWidth: '200px', minHeight: '356px' }}>
-                      <div className="aspect-[9/16] relative bg-slate-900">
-                        <VideoPlayerWithToggle
-                          video={video}
-                          getPresignedUrl={getPresignedUrl}
-                        />
-                        {video.duration && (
-                          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded z-30">
-                            {formatDuration(video.duration)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                  </CardContent>
-                  <CardFooter className="pt-3 flex justify-between gap-2">
-                    {video.status === "completed" && video.outputUrl ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => {
-                            // Open video in new tab for full view
-                            window.open(video.outputUrl, '_blank')
-                          }}
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View Full
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-1"
-                          asChild
-                        >
-                          <a href={video.outputUrl} download target="_blank" rel="noopener noreferrer">
-                            <Download className="w-3 h-3 mr-1" />
-                            Download
-                          </a>
-                        </Button>
-                      </>
-                    ) : video.status === "processing" ? (
-                      <Button variant="outline" size="sm" className="flex-1" disabled>
-                        <Clock className="w-3 h-3 mr-1 animate-spin" />
-                        Processing...
-                      </Button>
-                    ) : video.status === "failed" ? (
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        Retry
-                      </Button>
-                    ) : video.status === "uploaded" && video.mainVideoUrl ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1"
-                        onClick={async () => {
-                          // Get presigned URL and open in new tab for download
-                          const presignedUrl = await getPresignedUrl(video.mainVideoUrl)
-                          window.open(presignedUrl, '_blank')
-                        }}
-                      >
-                        <Download className="w-3 h-3 mr-1" />
-                        Download Source
-                      </Button>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setVideoToDelete(video)
-                        setDeleteDialogOpen(true)
-                      }}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </CardFooter>
-                </Card>
+                  video={video}
+                  isSelected={selectedVideos.has(video.id)}
+                  showCheckbox={!compact}
+                  onToggleSelection={!compact ? toggleVideoSelection : undefined}
+                  onDelete={(video) => {
+                    setVideoToDelete(video)
+                    setDeleteDialogOpen(true)
+                  }}
+                  getPresignedUrl={getPresignedUrl}
+                />
               ))}
             </div>
           )}

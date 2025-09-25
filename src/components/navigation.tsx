@@ -135,10 +135,10 @@ export function Navigation() {
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                  <Avatar className="h-8 w-8">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0 ring-2 ring-emerald-500 ring-offset-2 hover:ring-emerald-600 transition-all">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={user?.image || undefined} alt={user?.name || "User"} />
-                    <AvatarFallback className="bg-emerald-100 text-emerald-700 text-sm font-medium">
+                    <AvatarFallback className="bg-emerald-600 text-white text-sm font-semibold">
                       {user?.name ? getUserInitials(user.name) : <User className="w-4 h-4" />}
                     </AvatarFallback>
                   </Avatar>

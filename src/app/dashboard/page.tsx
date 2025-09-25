@@ -6,11 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
+import VideoLibrary from "@/components/videos/VideoLibrary"
 import {
-  Upload,
   Play,
   Settings,
-  Download,
   VideoIcon,
   HardDrive,
   Clock,
@@ -240,20 +239,21 @@ export default function DashboardPage() {
               <CardDescription>Your latest video processing activities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {/* Empty state for now */}
+              {session?.user?.id ? (
+                <div className="flex justify-center">
+                  <VideoLibrary
+                    userId={session.user.id}
+                    limit={3}
+                    compact={true}
+                  />
+                </div>
+              ) : (
                 <div className="text-center py-8">
                   <VideoIcon className="mx-auto h-12 w-12 text-slate-400 mb-3" />
                   <p className="text-slate-600 font-medium">No videos processed yet</p>
                   <p className="text-slate-500 text-sm">Create your first project to get started</p>
-                  <Link href="/create">
-                    <Button className="mt-4 bg-emerald-600 hover:bg-emerald-700">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Project
-                    </Button>
-                  </Link>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 

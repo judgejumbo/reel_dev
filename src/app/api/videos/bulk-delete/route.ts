@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
-import { inArray, eq } from "drizzle-orm"
+import { inArray, eq, and } from "drizzle-orm"
 import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3"
 
 // Initialize S3 client for R2
@@ -16,13 +17,19 @@ const S3 = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { videoIds } = await request.json()
 
     if (!videoIds || !Array.isArray(videoIds) || videoIds.length === 0) {
       return NextResponse.json({ error: "Invalid video IDs" }, { status: 400 })
     }
 
-    // Fetch all videos to get file URLs
+    // Fetch all videos to get file URLs and verify ownership
     const videos = await db
       .select({
         id: videoUploads.id,
@@ -31,7 +38,10 @@ export async function POST(request: NextRequest) {
         overlayVideoUrl: videoUploads.overlayVideoUrl,
       })
       .from(videoUploads)
-      .where(inArray(videoUploads.id, videoIds))
+      .where(and(
+        inArray(videoUploads.id, videoIds),
+        eq(videoUploads.userId, session.user.id)
+      ))
 
     if (videos.length === 0) {
       return NextResponse.json({ error: "No videos found" }, { status: 404 })

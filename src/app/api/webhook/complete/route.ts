@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { processingJobs } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+import { withWebhookAuth, checkWebhookRateLimit } from "@/lib/webhook-security"
 
-export async function POST(request: NextRequest) {
+export const POST = withWebhookAuth(async (request: NextRequest, body: any) => {
   try {
-    const body = await request.json()
+    // Rate limiting: 5 requests per minute per IP
+    const clientIP = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
+    if (!checkWebhookRateLimit(clientIP, 5, 60000)) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded" },
+        { status: 429 }
+      )
+    }
 
     // Log the entire webhook payload for debugging
     console.log("🔵 WEBHOOK COMPLETE - Full payload:", JSON.stringify(body, null, 2))
@@ -95,4 +103,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})

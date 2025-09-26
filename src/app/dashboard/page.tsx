@@ -281,7 +281,6 @@ export default function DashboardPage() {
               {session?.user?.id ? (
                 <div className="flex justify-center">
                   <VideoLibrary
-                    userId={session.user.id}
                     limit={3}
                     compact={true}
                   />

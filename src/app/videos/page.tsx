@@ -9,5 +9,5 @@ export default async function VideosPage() {
     redirect("/login")
   }
 
-  return <VideoLibrary userId={session.user.id} />
+  return <VideoLibrary />
 }

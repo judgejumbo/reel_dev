@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
 import { eq, and } from "drizzle-orm"
@@ -17,20 +18,29 @@ const S3 = new S3Client({
 // GET endpoint to fetch a single video by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const videoId = params.id
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id: videoId } = await params
 
     if (!videoId) {
       return NextResponse.json({ error: "Video ID required" }, { status: 400 })
     }
 
-    // Fetch the video upload
+    // Fetch the video upload and verify ownership
     const [video] = await db
       .select()
       .from(videoUploads)
-      .where(eq(videoUploads.id, videoId))
+      .where(and(
+        eq(videoUploads.id, videoId),
+        eq(videoUploads.userId, session.user.id)
+      ))
 
     if (!video) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 })
@@ -76,10 +86,16 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const videoId = params.id
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id: videoId } = await params
 
     // First, fetch the video to get file URLs and verify ownership
     const [video] = await db
@@ -90,7 +106,10 @@ export async function DELETE(
         overlayVideoUrl: videoUploads.overlayVideoUrl,
       })
       .from(videoUploads)
-      .where(eq(videoUploads.id, videoId))
+      .where(and(
+        eq(videoUploads.id, videoId),
+        eq(videoUploads.userId, session.user.id)
+      ))
 
     if (!video) {
       return NextResponse.json({ error: "Video not found" }, { status: 404 })

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
 import { eq, desc } from "drizzle-orm"
@@ -14,12 +15,14 @@ function convertToPublicUrl(privateUrl: string | null): string | null {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId")
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID required" }, { status: 400 })
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Use authenticated user's ID instead of query parameter
+    const userId = session.user.id
 
     // First fetch video uploads
     const videoUploadsList = await db

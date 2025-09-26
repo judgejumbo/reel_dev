@@ -50,12 +50,11 @@ interface VideoProject {
 }
 
 interface VideoLibraryProps {
-  userId: string
   limit?: number
   compact?: boolean
 }
 
-export default function VideoLibrary({ userId, limit, compact = false }: VideoLibraryProps) {
+export default function VideoLibrary({ limit, compact = false }: VideoLibraryProps) {
   const [videos, setVideos] = useState<VideoProject[]>([])
   const [isLoading, setIsLoading] = useState(false) // Don't block initial render
   const [dataLoaded, setDataLoaded] = useState(false)
@@ -90,16 +89,16 @@ export default function VideoLibrary({ userId, limit, compact = false }: VideoLi
 
   // Fetch videos on mount
   useEffect(() => {
-    if (userId && !dataLoaded) {
+    if (!dataLoaded) {
       fetchVideos()
     }
-  }, [userId, dataLoaded])
+  }, [dataLoaded])
 
   const fetchVideos = async () => {
-    console.log("Fetching videos for user:", userId)
+    console.log("Fetching videos (authentication-based)")
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/videos?userId=${userId}`)
+      const response = await fetch('/api/videos')
       console.log("Response status:", response.status)
       if (response.ok) {
         const data = await response.json()

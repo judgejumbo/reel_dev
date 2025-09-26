@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { auth } from "@/lib/auth"
 
 // Initialize S3 client for R2
 const s3Client = new S3Client({
@@ -15,6 +16,15 @@ const s3Client = new S3Client({
 
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: "Unauthorized - Authentication required" },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const url = searchParams.get("url")
 
@@ -46,13 +56,13 @@ export async function GET(request: NextRequest) {
     })
 
     const presignedUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 3600, // 1 hour expiry for GET requests
+      expiresIn: 1800, // 30 minutes expiry for better security
     })
 
     // Return the presigned URL
     return NextResponse.json({
       url: presignedUrl,
-      expires: new Date(Date.now() + 3600 * 1000).toISOString(),
+      expires: new Date(Date.now() + 1800 * 1000).toISOString(),
     })
   } catch (error) {
     console.error("Error generating presigned URL:", error)

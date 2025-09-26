@@ -183,12 +183,181 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 - N8N workflow nodes - Updated with authentication headers
 - All webhook endpoints secured with `withWebhookAuth` wrapper
 
-#### 6.7 Production Security & Deployment 🚀
+#### 6.7 Enhanced Application Security (CRITICAL BEFORE PAYMENTS) 🔒
+**Priority**: CRITICAL - Must complete before handling any payments
+**Timeline**: 3-4 days (8-10 hours total work)
+**Approach**: Step-by-step enhanced app-level security implementation
+**Status**: Prevents catastrophic security issues when processing payments
+
+##### Day 1: Core Security Infrastructure (2 hours)
+
+**Step 6.7.1: Create Security Database Client (30 min)**
+- [ ] Create `src/lib/db-secure.ts` - Wrapper around existing db client
+- [ ] Add automatic user context injection
+- [ ] Add query logging for audit trail
+- [ ] Add type-safe query builder functions
+
+**Step 6.7.2: Auth Middleware Enhancement (30 min)**
+- [ ] Create `src/middleware/auth-guard.ts` - Centralized auth checking
+- [ ] Add session validation with caching
+- [ ] Add rate limiting per user (prevent abuse)
+- [ ] Add request ID generation for tracing
+
+**Step 6.7.3: Security Types & Constants (30 min)**
+- [ ] Create `src/lib/security/types.ts` - Security context types
+- [ ] Create `src/lib/security/permissions.ts` - Permission definitions
+- [ ] Add error codes and security events
+- [ ] Define resource access levels
+
+**Step 6.7.4: Audit Logger Setup (30 min)**
+- [ ] Create `src/lib/security/audit.ts` - Structured logging
+- [ ] Track: who, what, when, result for all operations
+- [ ] Add integration hooks for monitoring (later)
+- [ ] Add security event classifications
+
+##### Day 2: Secure Query Patterns (2 hours)
+
+**Step 6.7.5: Query Builder Functions (45 min)**
+- [ ] Create `src/lib/security/queries.ts`:
+  - `secureFind()` - Auto-adds userId filter
+  - `secureUpdate()` - Verifies ownership before update
+  - `secureDelete()` - Ownership check + cascade handling
+  - `secureInsert()` - Auto-adds userId field
+
+**Step 6.7.6: Ownership Validators (30 min)**
+- [ ] Create `src/lib/security/ownership.ts`:
+  - `verifyVideoOwnership(userId, videoId)`
+  - `verifyJobOwnership(userId, jobId)`
+  - `verifySubscriptionOwnership(userId, subscriptionId)`
+  - Generic `verifyResourceOwnership()` function
+
+**Step 6.7.7: Resource Access Control (45 min)**
+- [ ] Create `src/lib/security/access.ts`:
+  - `canUserAccessVideo(userId, videoId)`
+  - `canUserModifyJob(userId, jobId)`
+  - `getResourcePermissions(userId, resourceType)`
+  - Permission caching for performance
+
+##### Day 3: API Route Security Updates (3 hours)
+
+**Step 6.7.8: Videos API Security (1 hour)**
+- [ ] Update `/api/videos/route.ts` - Use secure queries
+- [ ] Update `/api/videos/[id]/route.ts` - Add ownership checks
+- [ ] Update `/api/videos/bulk-delete/route.ts` - Batch ownership validation
+- [ ] Update `/api/videos/proxy/route.ts` - URL signing validation
+
+**Step 6.7.9: Upload API Security (45 min)**
+- [ ] Update `/api/upload/presigned-url/route.ts` - Add rate limiting
+- [ ] Update `/api/upload/complete/route.ts` - Add size/type validation
+- [ ] Add usage tracking enforcement
+- [ ] Add file type and size validation
+
+**Step 6.7.10: Processing API Security (45 min)**
+- [ ] Update `/api/processing/status/[jobId]/route.ts` - Add job ownership
+- [ ] Update `/api/webhook/*` - Add webhook signature validation
+- [ ] Add replay attack prevention
+- [ ] Add processing job ownership verification
+
+**Step 6.7.11: Auth API Hardening (30 min)**
+- [ ] Add token expiration enforcement
+- [ ] Add failed login tracking
+- [ ] Add account lockout after X attempts
+- [ ] Add password strength validation
+
+##### Day 4: Testing & Monitoring (1.5 hours)
+
+**Step 6.7.12: Security Tests (45 min)**
+- [ ] Create unit tests for each security function
+- [ ] Create integration tests for ownership checks
+- [ ] Create penetration test scenarios
+- [ ] Test unauthorized access attempts
+
+**Step 6.7.13: Error Handling (30 min)**
+- [ ] Create custom security error classes
+- [ ] Add safe error messages (no data leaks)
+- [ ] Add graceful degradation
+- [ ] Add security incident logging
+
+**Step 6.7.14: Security Monitoring Setup (15 min)**
+- [ ] Create security event dashboard foundation
+- [ ] Add alerts for suspicious patterns
+- [ ] Add performance impact measurement
+- [ ] Add security metrics collection
+
+**Security Implementation Benefits**:
+- 🔒 **Defense in depth** - Multiple security layers
+- ⚡ **Performance optimized** - Cached permission checks
+- 🛡️ **Audit trail** - All operations logged
+- 🚫 **Access control** - Centralized ownership validation
+- 📊 **Monitoring ready** - Security events tracked
+- 🔄 **Backwards compatible** - No breaking changes
+
+**📋 Security Implementation Approach - Why App-Level vs Database-Level**
+
+**Phase 6.7 uses Enhanced Application Security (NOT Row Level Security)**
+
+**✅ What This Plan Does (App-Level Security):**
+- **No database changes** - Works with existing schema unchanged
+- **No migrations needed** - Uses current tables as-is
+- **No RLS policies** - Stays at application layer only
+- **Backwards compatible** - All existing code continues working
+- **Fast implementation** - 8-10 hours vs 20-30 hours for full RLS
+
+**🔒 How It Achieves 80% of RLS Security Benefits:**
+
+```typescript
+// Before (current - scattered security checks):
+const videos = await db.select().from(videoUploads)
+  .where(eq(videoUploads.userId, session.user.id))
+
+// After (centralized security wrapper):
+const videos = await secureDb.videos.findAll(session.user.id)
+// Automatically: adds userId filter + audit logging + validation
+```
+
+**Security Coverage Provided:**
+- ✅ **User data isolation** - Users can only access their own data
+- ✅ **API endpoint protection** - All routes verify ownership
+- ✅ **Complete audit trail** - Track who accessed what, when
+- ✅ **Rate limiting** - Prevents brute force and abuse attacks
+- ✅ **Input validation** - Stops malicious requests and injection
+- ✅ **Secure error handling** - No data leaks in error messages
+
+**The Missing 20% (Database-Level Protection):**
+- Database-level enforcement if application has bugs
+- Protection against direct database access scenarios
+- SQL injection backup protection layer
+
+**Why This Approach for Payment-Ready Security:**
+- **Zero risk** - No database structure changes or migrations
+- **Payment secure** - Covers all realistic attack vectors for SaaS
+- **Enterprise ready** - Centralized security with complete audit trail
+- **Easy rollback** - Can disable security layer without data loss
+- **Performance optimized** - Cached ownership checks, minimal overhead
+- **Future proof** - Can add RLS later without breaking changes
+
+**Security vs Complexity Trade-off:**
+- **App-Level Security**: 8-10 hours → 80% protection → Payment ready
+- **Full RLS Implementation**: 20-30 hours → 95% protection → High complexity
+
+**Bottom Line**: This approach provides enterprise-level security without database risks, making the application secure enough for financial transactions while maintaining development velocity.
+
+**Success Criteria for Phase 6.7**:
+- [ ] All API routes use centralized security functions
+- [ ] All database operations verify user ownership
+- [ ] Complete audit trail of security events
+- [ ] Rate limiting prevents abuse
+- [ ] Unauthorized access attempts blocked and logged
+- [ ] Security tests pass 100%
+- [ ] Performance impact < 50ms per request
+- [ ] Ready for payment system integration
+
+#### 6.8 Production Security & Deployment 🚀
 **Priority**: HIGH - Production-ready security
 **Timeline**: 2-3 days production setup and testing
 **Approach**: Live environment security validation
 
-##### 6.7A: Production Security Testing
+##### 6.8A: Production Security Testing
 - [ ] SSL/TLS certificate validation and security headers
 - [ ] Production domain CORS configuration testing
 - [ ] Real N8N webhook security with HTTPS endpoints
@@ -197,7 +366,7 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 - [ ] Live webhook authentication with real signatures
 - [ ] Test: Attempt attacks against production endpoints
 
-##### 6.7B: Email & Domain Security
+##### 6.8B: Email & Domain Security
 - [ ] Update EMAIL_FROM to production domain
 - [ ] Verify domain in Resend dashboard (for production)
 - [ ] **CRITICAL**: Test email verification with real email addresses
@@ -205,7 +374,7 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 - [ ] Test email security headers and authentication
 - [ ] Monitor email delivery rates and security
 
-##### 6.7C: Production Infrastructure
+##### 6.8C: Production Infrastructure
 - [ ] Configure production rate limits and monitoring
 - [ ] Set up security monitoring and alerting
 - [ ] Create incident response runbook
@@ -232,22 +401,80 @@ complained@resend.dev            # Test spam handling
 - [ ] Tokens are secure (hashed, expiring, single-use)
 - [ ] Clear user feedback for all states
 - [ ] Rate limiting prevents abuse
+- [ ] Enhanced security layer fully operational
 - [ ] Ready for production deployment
 
-**Estimated Completion**: 5-7 days development + 1-2 days production setup
+**Estimated Completion**: 5-7 days development + 3-4 days security + 1-2 days production setup
 
-### Phase 7: Payment & Subscription System 📋
-**Priority**: High - Revenue generation
-- [ ] Stripe payment integration
-- [ ] Subscription plan management UI
-- [ ] Usage tracking and limits enforcement
-- [ ] Plan upgrade/downgrade workflows
-- [ ] Billing history and invoices
+### Phase 7: Payment & Subscription System with Lemon Squeezy (MoR) 🚀
+**Priority**: High - Revenue generation with minimal operational overhead
+**Timeline**: 7-10 days (significantly faster than traditional payment integration)
+**Strategy**: Using Lemon Squeezy as Merchant of Record to offload tax compliance and legal liability
 
-**Estimated**: 2-3 weeks
+#### Strategic Rationale for Lemon Squeezy:
+- **Zero tax complexity**: Handles VAT/GST globally, critical for solo/small team
+- **All-inclusive pricing**: 5% + $0.50 covers everything (no hidden fees)
+- **Days not weeks**: Integration in 2-3 days vs 2-3 weeks with Stripe
+- **Focus on product**: No need to build tax/compliance infrastructure
+
+#### Stage 1: Account Setup & Configuration (Day 1)
+- [ ] Create Lemon Squeezy account
+- [ ] Configure business details and tax settings
+- [ ] Set up webhook endpoints
+- [ ] Add environment variables for API keys
+- [ ] Create test products for development
+
+#### Stage 2: Database Schema Updates (Day 2)
+- [ ] Add `lemon_squeezy_customer_id` to users table
+- [ ] Create `subscriptions` table for tracking
+- [ ] Create `payment_history` table
+- [ ] Add usage credits/limits fields
+- [ ] Run database migrations
+
+#### Stage 3: Subscription Products Setup (Day 3)
+- [ ] Create subscription tiers in Lemon Squeezy:
+  - Free tier (3 videos/month)
+  - Pro tier ($29/mo - 50 videos)
+  - Business tier ($99/mo - unlimited)
+- [ ] Configure 7-day trial periods
+- [ ] Set up usage-based billing for overages
+
+#### Stage 4: Checkout Integration (Days 4-5)
+- [ ] Install Lemon.js SDK
+- [ ] Create pricing page with tier comparison
+- [ ] Implement checkout overlays with Lemon.js
+- [ ] Add subscription selection flow
+- [ ] Test checkout process end-to-end
+
+#### Stage 5: Webhook Handling (Days 6-7)
+- [ ] Implement webhook endpoints for:
+  - subscription.created
+  - subscription.updated
+  - subscription.cancelled
+  - order.created
+  - order.refunded
+- [ ] Update user subscription status
+- [ ] Implement usage tracking per tier
+
+#### Stage 6: Customer Portal & Management (Days 8-9)
+- [ ] Add subscription management to settings
+- [ ] Display current plan and usage
+- [ ] Implement plan upgrade/downgrade flows
+- [ ] Add billing history view
+- [ ] Create usage analytics dashboard
+
+#### Stage 7: Testing & Polish (Day 10)
+- [ ] Test all subscription lifecycles
+- [ ] Verify webhook handling
+- [ ] Test payment failures and recovery
+- [ ] Add proper error handling
+- [ ] Create upgrade prompts at limits
+
+**Estimated Completion**: 7-10 days
 
 ### Phase 8: Production Infrastructure 📋
 **Priority**: High - Deployment ready
+**Timeline**: 1-2 weeks (follows secure payment system)
 - [ ] Vercel deployment configuration
 - [ ] Environment variable management
 - [ ] Error tracking (Sentry integration)
@@ -313,6 +540,7 @@ complained@resend.dev            # Test spam handling
 - **Database**: Neon PostgreSQL with Drizzle ORM
 - **Storage**: Cloudflare R2
 - **Processing**: N8N webhooks + FFMPEG
+- **Payments**: Lemon Squeezy (Merchant of Record)
 - **State**: Zustand with persistence
 
 ### Database Schema (Complete)
@@ -356,9 +584,19 @@ complained@resend.dev            # Test spam handling
    - Payment integration testing
 
 ### Estimated Timeline to Production MVP
-**Total**: 4-7 weeks from current state
-- Phase 6 (Auth): 1-2 weeks
-- Phase 7 (Payments): 2-3 weeks
+**Total**: 4-6 weeks from current state (includes critical security)
+- Phase 6.1-6.6 (Auth): ✅ Complete
+- **Phase 6.7 (Security): 3-4 days (CRITICAL - must complete before payments)**
+- Phase 6.8 (Production Security): 1-2 days
+- Phase 7 (Payments): 7-10 days (Lemon Squeezy MoR)
 - Phase 8 (Deploy): 1-2 weeks
 
-**Minimum Viable Timeline**: 4 weeks (focusing only on essential features)
+**Minimum Viable Timeline**: 4 weeks (including essential security layer)
+
+**CRITICAL SECURITY NOTE**: Phase 6.7 is mandatory before any payment processing. This prevents catastrophic security issues when handling financial transactions.
+
+### Strategic Benefits of Lemon Squeezy Choice:
+- **Accelerated Timeline**: Reduced from 2-3 weeks to 7-10 days
+- **Zero Tax Overhead**: No need for tax compliance infrastructure
+- **Simplified Operations**: All-inclusive pricing with no hidden costs
+- **Focus on Core Product**: More time for video processing optimization

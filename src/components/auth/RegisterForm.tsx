@@ -27,6 +27,8 @@ type RegisterFormData = z.infer<typeof registerSchema>
 export function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [registrationComplete, setRegistrationComplete] = useState(false)
   const router = useRouter()
 
   const form = useForm<RegisterFormData>({
@@ -42,6 +44,7 @@ export function RegisterForm() {
   async function onSubmit(data: RegisterFormData) {
     setIsLoading(true)
     setError(null)
+    setSuccess(null)
 
     try {
       const result = await registerUser(data.email, data.password, data.name)
@@ -49,25 +52,47 @@ export function RegisterForm() {
       if (result.error) {
         setError(result.error)
       } else {
-        // Auto-login after successful registration
-        const signInResult = await signIn("credentials", {
-          email: data.email,
-          password: data.password,
-          redirect: false,
-        })
-
-        if (signInResult?.error) {
-          setError("Account created but login failed. Please try logging in manually.")
-        } else {
-          router.push("/dashboard")
-          router.refresh()
-        }
+        // Registration successful - show verification message
+        setRegistrationComplete(true)
+        setSuccess(`Account created successfully! Please check ${data.email} for a verification email.`)
       }
     } catch (err) {
       setError("An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (registrationComplete) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center text-green-600">Check Your Email!</CardTitle>
+          <CardDescription className="text-center">
+            We&apos;ve sent a verification link to your email address
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          {success && (
+            <div className="text-sm text-green-600 bg-green-50 p-4 rounded-md">
+              {success}
+            </div>
+          )}
+          <div className="text-sm text-muted-foreground">
+            <p>Please click the verification link in your email to activate your account.</p>
+            <p className="mt-2">Didn&apos;t receive an email? Check your spam folder or contact support.</p>
+          </div>
+        </CardContent>
+        <CardFooter className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Already verified?{" "}
+            <a href="/login" className="text-primary hover:underline">
+              Sign in here
+            </a>
+          </p>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (

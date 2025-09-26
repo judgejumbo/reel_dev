@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import Link from "next/link"
 import VideoLibrary from "@/components/videos/VideoLibrary"
+import { VerificationStatusBanner } from "@/components/auth/VerificationStatusBanner"
+import { useEffect, useState } from "react"
 import {
   Play,
   Settings,
@@ -21,6 +23,28 @@ import {
 
 export default function DashboardPage() {
   const { data: session, status } = useSession()
+  const [userData, setUserData] = useState<any>(null)
+
+  // Fetch user data including email verification status
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (session?.user?.id) {
+        try {
+          const response = await fetch(`/api/user/${session.user.id}`)
+          if (response.ok) {
+            const data = await response.json()
+            setUserData(data)
+          }
+        } catch (error) {
+          console.error("Failed to fetch user data:", error)
+        }
+      }
+    }
+
+    if (session) {
+      fetchUserData()
+    }
+  }, [session])
 
   // Mock data - replace with actual database queries
   const dashboardData = {
@@ -81,6 +105,21 @@ export default function DashboardPage() {
               Here&apos;s how your video repurposing is going
             </p>
           </div>
+
+          {/* Email Verification Banner */}
+          {userData && (
+            <VerificationStatusBanner
+              user={{
+                id: userData.id,
+                email: userData.email,
+                emailVerified: userData.emailVerified
+              }}
+              onResendSuccess={() => {
+                // Optionally refresh user data after resend
+                console.log("Verification email resent successfully")
+              }}
+            />
+          )}
 
           {/* Overview Metrics Cards */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

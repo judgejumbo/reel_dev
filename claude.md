@@ -9,12 +9,13 @@ Video repurposing SaaS application built with Next.js 15 that converts horizonta
 ## Tech Stack
 
 - **Framework**: Next.js 15 with App Router and TypeScript 5
-- **Authentication**: NextAuth.js v5 with credentials provider
+- **Authentication**: NextAuth.js v5 with credentials provider + Drizzle adapter
 - **Database**: Neon PostgreSQL with Drizzle ORM
 - **Styling**: Tailwind CSS v4 with custom CSS variables
 - **UI Components**: shadcn/ui components (MCP configured)
-- **State Management**: Zustand for video workflow state
-- **File Upload**: Native HTML5 drag & drop with Cloudflare R2
+- **State Management**: Zustand with persist middleware for video workflow state
+- **File Upload**: Multi-part chunked upload with Cloudflare R2 and Uppy.js
+- **Video Processing**: N8N webhook integration for FFMPEG video conversion
 - **Package Manager**: npm
 
 ## Development Commands
@@ -28,6 +29,7 @@ npm run format       # Format code with Prettier
 npm run format:check # Check code formatting
 npm run db:generate  # Generate database migrations
 npm run db:migrate   # Run database migrations
+npm run db:migrate   # Run database migrations
 npm run db:push      # Push database schema changes
 npm run db:studio    # Open Drizzle Studio
 ```
@@ -37,14 +39,33 @@ npm run db:studio    # Open Drizzle Studio
 ✅ **Phase 1 Complete**: Authentication system, database schema, protected routes
 ✅ **Phase 2 Complete**: Video upload with drag & drop, R2 storage, workflow stepper
 ✅ **Phase 3 Complete**: Video processing workflow with N8N integration and complete page
+✅ **Phase 4 Complete**: Video library with presigned URLs and source/completed toggles
 
 ## Key Architecture
 
-**Authentication**: NextAuth.js with credentials provider + Drizzle adapter
-**Database**: `users`, `video_uploads`, `clip_settings`, `processing_jobs` tables
-**Video Workflow**: Upload → Clip → Settings → Process → Complete (5-step pipeline)
-**Storage**: Cloudflare R2 configured for video files
-**Processing**: N8N webhook integration for video conversion to 1080x1920 vertical format
+### Database Schema (src/lib/schema.ts)
+- **NextAuth.js Tables**: `users`, `accounts`, `sessions`, `verificationTokens`
+- **Subscription System**: `subscription_plans`, `user_subscriptions`, `usage_tracking`
+- **Video Workflow**: `video_uploads`, `clip_settings`, `processing_jobs`
+
+### Video Processing Pipeline
+1. **Upload** (src/app/upload/page.tsx): Multi-part upload to Cloudflare R2
+2. **Clip Selection**: Timeline-based video segment selection
+3. **Overlay Settings**: FFMPEG parameters and overlay configuration
+4. **Processing**: N8N webhook for video conversion (1080x1920 vertical)
+5. **Complete** (src/app/complete/page.tsx): Results and download
+
+### State Management (src/lib/stores/video-workflow-store.ts)
+- Zustand store with localStorage persistence
+- Workflow steps: `upload | clip | settings | process`
+- File management for main video and overlay media
+- N8N payload generation for webhook processing
+
+### API Routes
+- **Upload**: `/api/upload/presigned-url`, `/api/upload/chunked`, `/api/upload/complete`
+- **Videos**: `/api/videos` (CRUD), `/api/videos/proxy` (R2 streaming)
+- **Processing**: `/api/processing/status/[jobId]`
+- **Webhooks**: `/api/webhook/process`, `/api/webhook/complete`
 
 ## Code Conventions
 
@@ -56,10 +77,11 @@ npm run db:studio    # Open Drizzle Studio
 ## Important Notes
 
 - Always use shadcn MCP for UI components when building features
-- Database uses NextAuth.js compatible schema
+- Database uses NextAuth.js compatible schema with Drizzle adapter
 - Authentication routes: `/login`, `/register`, `/dashboard`
-- Video workflow routes: `/upload` (main workflow), `/complete` (results page)
-- N8N webhook configured for video processing
+- Main application routes: `/create` (project creation), `/videos` (library), `/upload` (workflow)
+- N8N webhook configured at `/api/webhook/process` for video processing
+- Cloudflare R2 configured for video file storage with presigned URL uploads
 - **Do not run the dev server** - the user will start it manually in their terminal
 
 # important-instruction-reminders

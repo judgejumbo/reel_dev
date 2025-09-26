@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
+import { useState, useEffect } from "react"
+import { changePassword, updateProfile, requestEmailChange, resendEmailVerification } from "@/app/actions/settings"
+import toast, { Toaster } from "react-hot-toast"
 import {
   User,
   Crown,
@@ -17,10 +20,33 @@ import {
   Shield,
   CreditCard,
   LogOut,
+  Mail,
+  CheckCircle,
+  AlertCircle,
+  Clock,
 } from "lucide-react"
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
+  const [profileName, setProfileName] = useState("")
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [newEmail, setNewEmail] = useState("")
+  const [emailChangePassword, setEmailChangePassword] = useState("")
+  const [isLoading, setIsLoading] = useState({
+    profile: false,
+    password: false,
+    email: false,
+    verification: false,
+  })
+
+  // Initialize profile name when user data is available
+  useEffect(() => {
+    if (session?.user?.name) {
+      setProfileName(session.user.name)
+    }
+  }, [session?.user])
 
   // Generate user initials for avatar fallback
   const getUserInitials = (name: string) => {
@@ -64,6 +90,84 @@ export default function SettingsPage() {
   }
 
   const user = session.user
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(prev => ({ ...prev, profile: true }))
+
+    try {
+      const result = await updateProfile(profileName)
+      if (result.success) {
+        toast.success(result.message)
+        await update() // Refresh session
+      } else {
+        toast.error(result.error || "Failed to update profile")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(prev => ({ ...prev, profile: false }))
+    }
+  }
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(prev => ({ ...prev, password: true }))
+
+    try {
+      const result = await changePassword(currentPassword, newPassword, confirmPassword)
+      if (result.success) {
+        toast.success(result.message)
+        // Clear form
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmPassword("")
+      } else {
+        toast.error(result.error || "Failed to change password")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(prev => ({ ...prev, password: false }))
+    }
+  }
+
+  const handleEmailChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(prev => ({ ...prev, email: true }))
+
+    try {
+      const result = await requestEmailChange(newEmail, emailChangePassword)
+      if (result.success) {
+        toast.success(result.message)
+        setNewEmail("")
+        setEmailChangePassword("")
+      } else {
+        toast.error(result.error || "Failed to request email change")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(prev => ({ ...prev, email: false }))
+    }
+  }
+
+  const handleResendVerification = async () => {
+    setIsLoading(prev => ({ ...prev, verification: true }))
+
+    try {
+      const result = await resendEmailVerification()
+      if (result.success) {
+        toast.success(result.message)
+      } else {
+        toast.error(result.error || "Failed to send verification email")
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred")
+    } finally {
+      setIsLoading(prev => ({ ...prev, verification: false }))
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-emerald-50/30">
@@ -129,6 +233,31 @@ export default function SettingsPage() {
 
             {/* Settings Forms */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Email Verification Status */}
+              {user?.emailVerified === null && (
+                <Card className="border-amber-200 bg-amber-50/80 backdrop-blur-sm">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <AlertCircle className="h-5 w-5 text-amber-600" />
+                        <div>
+                          <p className="font-medium text-amber-900">Email Verification Required</p>
+                          <p className="text-sm text-amber-700">Please verify your email address to secure your account</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleResendVerification}
+                        disabled={isLoading.verification}
+                        size="sm"
+                        className="bg-amber-600 hover:bg-amber-700"
+                      >
+                        {isLoading.verification ? "Sending..." : "Resend Email"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Profile Information */}
               <Card className="border-emerald-200 bg-white/80 backdrop-blur-sm">
                 <CardHeader>
@@ -138,41 +267,95 @@ export default function SettingsPage() {
                   </CardTitle>
                   <CardDescription>Update your personal information</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <CardContent>
+                  <form onSubmit={handleProfileUpdate} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
                       <Input
                         id="name"
-                        defaultValue={user?.name || ""}
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
                         placeholder="Enter your full name"
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isLoading.profile}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isLoading.profile ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {/* Email Management */}
+              <Card className="border-emerald-200 bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center text-emerald-800">
+                    <Mail className="mr-2 h-5 w-5" />
+                    Email Settings
+                  </CardTitle>
+                  <CardDescription>Manage your email address and verification status</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Current Email */}
+                  <div className="space-y-2">
+                    <Label>Current Email Address</Label>
+                    <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
+                      <Mail className="h-4 w-4 text-slate-500" />
+                      <span className="flex-1">{user?.email}</span>
+                      {user?.emailVerified ? (
+                        <div className="flex items-center space-x-1 text-green-600">
+                          <CheckCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Verified</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-1 text-amber-600">
+                          <Clock className="h-4 w-4" />
+                          <span className="text-sm font-medium">Unverified</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Change Email */}
+                  <form onSubmit={handleEmailChange} className="space-y-4">
+                    <h4 className="font-medium text-slate-900">Change Email Address</h4>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-email">New Email Address</Label>
+                      <Input
+                        id="new-email"
+                        type="email"
+                        value={newEmail}
+                        onChange={(e) => setNewEmail(e.target.value)}
+                        placeholder="Enter new email address"
+                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email Address</Label>
+                      <Label htmlFor="email-password">Current Password</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        defaultValue={user?.email || ""}
-                        placeholder="Enter your email"
-                        disabled
-                        className="bg-slate-50"
+                        id="email-password"
+                        type="password"
+                        value={emailChangePassword}
+                        onChange={(e) => setEmailChangePassword(e.target.value)}
+                        placeholder="Enter current password"
+                        required
                       />
-                      <p className="text-xs text-slate-500">Email changes require verification</p>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="company">Company Name (Optional)</Label>
-                    <Input
-                      id="company"
-                      placeholder="Enter your company name"
-                      className="w-full"
-                    />
-                    <p className="text-xs text-slate-500">This will appear on your invoices</p>
-                  </div>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700">
-                    Save Changes
-                  </Button>
+                    <Button
+                      type="submit"
+                      disabled={isLoading.email}
+                      variant="outline"
+                      className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      {isLoading.email ? "Sending Verification..." : "Change Email"}
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
 
@@ -183,38 +366,71 @@ export default function SettingsPage() {
                     <Shield className="mr-2 h-5 w-5" />
                     Security & Password
                   </CardTitle>
-                  <CardDescription>Manage your account security</CardDescription>
+                  <CardDescription>Manage your account security and password</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      placeholder="Enter current password"
-                    />
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <CardContent className="space-y-6">
+                  {/* Password Last Changed */}
+                  {user?.passwordChangedAt && (
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <div className="flex items-center space-x-2 text-sm text-slate-600">
+                        <Clock className="h-4 w-4" />
+                        <span>Password last changed: {new Date(user.passwordChangedAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Change Password Form */}
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <h4 className="font-medium text-slate-900">Change Password</h4>
                     <div className="space-y-2">
-                      <Label htmlFor="new-password">New Password</Label>
+                      <Label htmlFor="current-password">Current Password</Label>
                       <Input
-                        id="new-password"
+                        id="current-password"
                         type="password"
-                        placeholder="Enter new password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        placeholder="Enter current password"
+                        required
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm Password</Label>
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="Confirm new password"
-                      />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input
+                          id="new-password"
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          minLength={8}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="confirm-password">Confirm Password</Label>
+                        <Input
+                          id="confirm-password"
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                          minLength={8}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <Button variant="outline">
-                    Update Password
-                  </Button>
+                    <p className="text-xs text-slate-500">Password must be at least 8 characters long</p>
+                    <Button
+                      type="submit"
+                      disabled={isLoading.password}
+                      variant="outline"
+                      className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      {isLoading.password ? "Updating..." : "Update Password"}
+                    </Button>
+                  </form>
                 </CardContent>
               </Card>
 
@@ -272,6 +488,7 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      <Toaster position="top-right" />
     </div>
   )
 }

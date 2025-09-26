@@ -277,7 +277,20 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 - [ ] Add replay attack prevention
 - [ ] Add processing job ownership verification
 
-**Step 6.7.11: Auth API Hardening (30 min)**
+**Step 6.7.11: TypeScript & Code Quality Fixes (45 min)**
+- [ ] **CRITICAL**: Fix `@typescript-eslint/no-explicit-any` errors in security modules
+  - Replace `Record<string, any>` with `Record<string, unknown>` in queries.ts
+  - Fix `any` types in audit.ts, auth-guard.ts
+  - Update function return types from `any[]` to proper types
+- [ ] Fix React/ESLint warnings:
+  - Escape apostrophes (`'` → `&apos;`) in React components
+  - Remove unused imports/variables in API routes
+  - Add missing React hook dependencies
+- [ ] Fix Next.js optimization warnings:
+  - Replace `<img>` with `<Image />` components where needed
+- [ ] **BUILD VERIFICATION**: Ensure `npm run build` passes without errors
+
+**Step 6.7.12: Auth API Hardening (30 min)**
 - [ ] Add token expiration enforcement
 - [ ] Add failed login tracking
 - [ ] Add account lockout after X attempts
@@ -285,13 +298,13 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 
 ##### Day 4: Testing & Monitoring (1.5 hours)
 
-**Step 6.7.12: Security Tests (45 min)**
+**Step 6.7.13: Security Tests (45 min)**
 - [ ] Create unit tests for each security function
 - [ ] Create integration tests for ownership checks
 - [ ] Create penetration test scenarios
 - [ ] Test unauthorized access attempts
 
-**Step 6.7.13: Error Handling (30 min)**
+**Step 6.7.14: Error Handling (30 min)**
 - [ ] Create custom security error classes
 - [ ] Add safe error messages (no data leaks)
 - [ ] Add graceful degradation

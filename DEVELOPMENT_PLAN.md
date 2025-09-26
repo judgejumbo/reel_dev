@@ -61,28 +61,30 @@ Video repurposing SaaS application that converts horizontal videos to 1080x1920 
 **Timeline**: 5-7 days on localhost
 **Approach**: Three auth features using shared infrastructure
 
-#### 6.1 Setup & Infrastructure (Day 1)
-- [ ] Create Resend account at resend.com
-- [ ] Get API key from Resend dashboard
-- [ ] Install dependencies: `npm install resend nodemailer @react-email/components`
-- [ ] Add Resend environment variables to .env.local
-- [ ] Create `authTokens` database table in schema.ts
-- [ ] Run database migration: `npm run db:push`
-- [ ] Create src/lib/email.ts for Resend client wrapper
-- [ ] Create src/lib/tokens.ts for token utilities
-- [ ] Set up test email addresses for development
+#### 6.1 Setup & Infrastructure (Day 1) ✅
+- [x] Create Resend account at resend.com
+- [x] Get API key from Resend dashboard
+- [x] Install dependencies: `npm install resend nodemailer @react-email/components`
+- [x] Add Resend environment variables to .env.local
+- [x] Create `authTokens` database table in schema.ts
+- [x] Run database migration: `npm run db:push`
+- [x] Create src/lib/email.ts for Resend client wrapper
+- [x] Create src/lib/tokens.ts for token utilities
+- [x] Set up test email addresses for development
 
-#### 6.2 Password Reset Flow (Day 2-3)
-- [ ] Create /forgot-password page with email form
-- [ ] Create server action for password reset request
-- [ ] Implement token generation and hashing
-- [ ] Create password reset email template with React Email
-- [ ] Create /reset-password/[token] page
-- [ ] Implement token validation logic
-- [ ] Create new password form with confirmation
-- [ ] Implement password update server action
-- [ ] Add success/error messaging
-- [ ] Test full flow with delivered@resend.dev
+#### 6.2 Password Reset Flow (Day 2-3) ✅
+- [x] Create /forgot-password page with email form
+- [x] Create server action for password reset request
+- [x] Implement token generation and hashing
+- [x] Create password reset email template with React Email
+- [x] Create /reset-password/[token] page
+- [x] Implement token validation logic
+- [x] Create new password form with confirmation
+- [x] Implement password update server action
+- [x] Add success/error messaging
+- [x] Test full flow with verified@resend.dev
+- [x] Fix Next.js 15 async params issue
+- [x] Fix Drizzle NULL checks with isNull()
 
 #### 6.3 Magic Links Implementation (Day 3-4)
 - [ ] Update /login page with "Email me a login link" option

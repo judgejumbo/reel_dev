@@ -179,6 +179,17 @@ export const usageTracking = pgTable("usage_tracking", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
+// Auth tokens - Phase 6: Password reset, magic links, email verification
+export const authTokens = pgTable("auth_tokens", {
+  id: uuid("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  token: text("token").notNull().unique(), // Hashed token for security
+  type: varchar("type", { length: 20 }).notNull(), // PASSWORD_RESET, MAGIC_LINK, EMAIL_VERIFY
+  expires: timestamp("expires", { mode: "date" }).notNull(),
+  usedAt: timestamp("used_at", { mode: "date" }), // null until token is used
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
 // Export types for use in the application
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -195,3 +206,6 @@ export type NewProcessingJob = typeof processingJobs.$inferInsert
 export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect
 export type UserSubscription = typeof userSubscriptions.$inferSelect
 export type UsageTracking = typeof usageTracking.$inferSelect
+
+export type AuthToken = typeof authTokens.$inferSelect
+export type NewAuthToken = typeof authTokens.$inferInsert

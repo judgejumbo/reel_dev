@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAuth } from "@/middleware/auth-guard"
+import { auditLogger } from "@/lib/security/audit"
 
 const N8N_WEBHOOK_URL = "https://n8n.srv888156.hstgr.cloud/webhook-test/reelrift"
 
 export async function POST(request: NextRequest) {
   try {
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
+    }
+
+    const { userId, requestId } = authResult
     const body = await request.json()
     const { payload, projectName } = body
 
@@ -32,6 +41,20 @@ export async function POST(request: NextRequest) {
 
     const n8nResponse = await response.text()
     console.log("N8N Response:", n8nResponse)
+
+    // Log successful test webhook
+    await auditLogger.logSuccess(
+      userId,
+      "CREATE",
+      "webhook",
+      payload.jobId,
+      requestId,
+      {
+        operation: 'test_n8n_webhook',
+        projectName: projectName,
+        n8nStatus: response.status
+      }
+    )
 
     return NextResponse.json({
       success: true,

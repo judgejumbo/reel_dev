@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
-import { videoUploads, usageTracking } from "@/lib/schema"
+import { usageTracking } from "@/lib/schema"
 import { eq, and } from "drizzle-orm"
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const body = await request.json()
     const {
@@ -23,7 +27,6 @@ export async function POST(request: NextRequest) {
       resolution,
       fileKey, // R2 file key instead of full URL
       videoUploadId, // For overlay videos, this should be the existing record ID
-      projectName, // User-entered project name from Zustand store
     } = body
 
     // Validate required fields
@@ -37,24 +40,28 @@ export async function POST(request: NextRequest) {
     let recordId: string
 
     if (type === "main") {
-      // Create new video upload record for main video
-      const [newRecord] = await db
-        .insert(videoUploads)
-        .values({
-          userId: session.user.id,
-          mainVideoUrl: `${process.env.CLOUDFLARE_R2_ENDPOINT}/${fileKey}`,
-          mainVideoFilename: filename,
-          mainVideoSize: fileSize,
-          duration: duration ? duration.toString() : null,
-          originalFormat: format,
-          originalResolution: resolution,
-          status: "uploaded",
-        })
-        .returning({ id: videoUploads.id })
+      // Create new video upload record for main video using secure queries
+      const context = secureQueries.createContext(userId, requestId)
+      const insertResult = await secureQueries.insert("video", context, {
+        mainVideoUrl: `${process.env.CLOUDFLARE_R2_ENDPOINT}/${fileKey}`,
+        mainVideoFilename: filename,
+        mainVideoSize: fileSize,
+        duration: duration ? duration.toString() : null,
+        originalFormat: format,
+        originalResolution: resolution,
+        status: "uploaded",
+      })
 
-      recordId = newRecord.id
+      if (!insertResult.success) {
+        return NextResponse.json(
+          { error: "Failed to create video record" },
+          { status: 500 }
+        )
+      }
 
-      // Update usage tracking
+      recordId = insertResult.id!
+
+      // Update usage tracking with secure queries
       const currentDate = new Date()
       const month = currentDate.getMonth() + 1
       const year = currentDate.getFullYear()
@@ -65,7 +72,7 @@ export async function POST(request: NextRequest) {
         .from(usageTracking)
         .where(
           and(
-            eq(usageTracking.userId, session.user.id),
+            eq(usageTracking.userId, userId),
             eq(usageTracking.month, month),
             eq(usageTracking.year, year)
           )
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
           .where(eq(usageTracking.id, existingUsage[0].id))
       } else {
         await db.insert(usageTracking).values({
-          userId: session.user.id,
+          userId: userId,
           month,
           year,
           uploadsCount: 1,
@@ -99,20 +106,21 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      await db
-        .update(videoUploads)
-        .set({
-          overlayVideoUrl: `${process.env.CLOUDFLARE_R2_ENDPOINT}/${fileKey}`,
-          overlayVideoFilename: filename,
-          overlayVideoSize: fileSize,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(
-            eq(videoUploads.id, videoUploadId),
-            eq(videoUploads.userId, session.user.id) // Ensure user owns the record
-          )
+      // Use secure queries for overlay video update
+      const context = secureQueries.createContext(userId, requestId)
+      const updateResult = await secureQueries.update("video", context, videoUploadId, {
+        overlayVideoUrl: `${process.env.CLOUDFLARE_R2_ENDPOINT}/${fileKey}`,
+        overlayVideoFilename: filename,
+        overlayVideoSize: fileSize,
+        updatedAt: new Date(),
+      })
+
+      if (!updateResult.success) {
+        return NextResponse.json(
+          { error: "Failed to update video record or access denied" },
+          { status: updateResult.reason === "NOT_FOUND" ? 404 : 403 }
         )
+      }
 
       recordId = videoUploadId
 
@@ -126,7 +134,7 @@ export async function POST(request: NextRequest) {
         .from(usageTracking)
         .where(
           and(
-            eq(usageTracking.userId, session.user.id),
+            eq(usageTracking.userId, userId),
             eq(usageTracking.month, month),
             eq(usageTracking.year, year)
           )
@@ -148,6 +156,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Log successful upload completion
+    await auditLogger.logSuccess(
+      userId,
+      type === "main" ? "CREATE" : "UPDATE",
+      "video",
+      recordId,
+      requestId,
+      {
+        operation: 'upload_complete',
+        uploadType: type,
+        filename: filename,
+        fileSize: fileSize,
+        fileKey: fileKey
+      }
+    )
 
     return NextResponse.json({
       success: true,

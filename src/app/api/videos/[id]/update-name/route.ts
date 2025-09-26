@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server"
+import { requireAuth } from "@/middleware/auth-guard"
+import { canUserAccessVideo } from "@/lib/security/access"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
 import { videoUploads } from "@/lib/schema"
 import { eq } from "drizzle-orm"
-import { auth } from "@/lib/auth"
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
 
+    const { userId, requestId } = authResult
     const videoId = params.id
     const body = await request.json()
     const { projectName } = body
@@ -24,6 +28,22 @@ export async function PATCH(
         { status: 400 }
       )
     }
+
+    // Check video update permissions
+    const accessResult = await canUserAccessVideo(userId, videoId, "UPDATE", { requestId })
+    if (!accessResult.allowed) {
+      return NextResponse.json({ error: accessResult.reason || "Access denied" }, { status: 403 })
+    }
+
+    // Log the update operation
+    await auditLogger.logSuccess(
+      userId,
+      "UPDATE",
+      "video",
+      videoId,
+      requestId,
+      { operation: 'update_project_name', newName: projectName }
+    )
 
     // For now, we'll store the project name in a temporary way
     // Since we can't modify the database schema easily

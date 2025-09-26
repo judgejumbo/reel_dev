@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
-import { eq, desc } from "drizzle-orm"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 
 // Convert private R2 URLs to public URLs for display
 function convertToPublicUrl(privateUrl: string | null): string | null {
@@ -15,27 +14,21 @@ function convertToPublicUrl(privateUrl: string | null): string | null {
 
 export async function GET(request: NextRequest) {
   try {
-    // Check authentication
+    // Check authentication using NextAuth.js
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Use authenticated user's ID instead of query parameter
     const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    // First fetch video uploads
-    const videoUploadsList = await db
-      .select()
-      .from(videoUploads)
-      .where(eq(videoUploads.userId, userId))
-      .orderBy(desc(videoUploads.createdAt))
+    // Create secure context for database operations
+    const context = secureQueries.createContext(userId, requestId)
 
-    // Then fetch all processing jobs for this user
-    const processingJobsList = await db
-      .select()
-      .from(processingJobs)
-      .where(eq(processingJobs.userId, userId))
+    // Use secure queries with automatic userId filtering
+    const videoUploadsList = await secureQueries.find("video", context)
+    const processingJobsList = await secureQueries.find("job", context)
 
     // Since we don't have a direct foreign key relationship,
     // we'll match based on creation time proximity and user
@@ -65,6 +58,16 @@ export async function GET(request: NextRequest) {
         processingJobId: matchingJob?.id || null,
       }
     })
+
+    // Log successful video access
+    await auditLogger.logSuccess(
+      userId,
+      "READ",
+      "video",
+      undefined, // No specific video ID for list operation
+      requestId,
+      { operation: 'list_videos', count: formattedVideos.length }
+    )
 
     return NextResponse.json(formattedVideos)
   } catch (error) {

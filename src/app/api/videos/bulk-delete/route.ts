@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
 import { inArray, eq, and } from "drizzle-orm"
@@ -17,19 +19,28 @@ const S3 = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
 
+    const { userId, requestId } = authResult
     const { videoIds } = await request.json()
 
     if (!videoIds || !Array.isArray(videoIds) || videoIds.length === 0) {
       return NextResponse.json({ error: "Invalid video IDs" }, { status: 400 })
     }
 
-    // Fetch all videos to get file URLs and verify ownership
+    // Create secure context and use bulk delete
+    const context = secureQueries.createContext(userId, requestId)
+    const result = await secureQueries.bulkDelete("video", context, videoIds)
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json({ error: "No videos found or access denied" }, { status: 404 })
+    }
+
+    // For R2 cleanup, we still need to fetch the video details
     const videos = await db
       .select({
         id: videoUploads.id,
@@ -39,25 +50,12 @@ export async function POST(request: NextRequest) {
       })
       .from(videoUploads)
       .where(and(
-        inArray(videoUploads.id, videoIds),
-        eq(videoUploads.userId, session.user.id)
+        inArray(videoUploads.id, result.deletedCount > 0 ? videoIds.filter(id => !result.failedIds.includes(id)) : []),
+        eq(videoUploads.userId, userId)
       ))
 
-    if (videos.length === 0) {
-      return NextResponse.json({ error: "No videos found" }, { status: 404 })
-    }
-
-    // Fetch associated processing jobs
-    const userIds = [...new Set(videos.map((v) => v.userId))]
-    const processingJobsList = await db
-      .select({
-        id: processingJobs.id,
-        userId: processingJobs.userId,
-        outputUrl: processingJobs.outputUrl,
-        thumbnailUrl: processingJobs.thumbnailUrl,
-      })
-      .from(processingJobs)
-      .where(inArray(processingJobs.userId, userIds))
+    // Fetch associated processing jobs using secure queries
+    const processingJobsList = await secureQueries.find("job", context)
 
     // Collect all files to delete from R2
     const filesToDelete: string[] = []
@@ -113,26 +111,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Delete from database
-    // First delete clip settings
-    await db
-      .delete(clipSettings)
-      .where(inArray(clipSettings.videoUploadId, videoIds))
-
-    // Delete processing jobs
-    if (processingJobsList.length > 0) {
-      await db
-        .delete(processingJobs)
-        .where(inArray(processingJobs.id, processingJobsList.map((j) => j.id)))
-    }
-
-    // Finally delete video uploads
-    await db.delete(videoUploads).where(inArray(videoUploads.id, videoIds))
+    // Database deletion already handled by secureQueries.bulkDelete above
 
     return NextResponse.json({
       success: true,
-      message: `Successfully deleted ${videoIds.length} videos`,
-      deletedCount: videoIds.length,
+      message: `Successfully deleted ${result.deletedCount} videos`,
+      deletedCount: result.deletedCount,
+      failedCount: result.failedIds.length,
+      failedIds: result.failedIds,
     })
   } catch (error) {
     console.error("Error bulk deleting videos:", error)

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { processingJobs } from "@/lib/schema"
-import { eq } from "drizzle-orm"
 
 const N8N_WEBHOOK_URL = "https://n8n.srv888156.hstgr.cloud/webhook-test/reelrift"
 
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest) {
       hasWebhookUrl: !!webhookUrl,
       receivedWebhookUrl: webhookUrl,
       originalPayloadWebhookUrl: payload?.webhookUrl,
-      userId: session.user.id,
+      userId: userId,
       payloadKeys: payload ? Object.keys(payload) : null
     })
 
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
     try {
       await db.insert(processingJobs).values({
         id: payload.jobId,
-        userId: session.user.id,
+        userId: userId,
         projectName: projectName,
         webhookUrl: payload.webhookUrl,
         videoSegment: payload.videoSegment,
@@ -85,15 +84,31 @@ export async function POST(request: NextRequest) {
 
     const n8nResponse = await response.json()
 
-    // Update job status to processing
-    await db
-      .update(processingJobs)
-      .set({
-        status: "processing",
-        progress: 10,
-        updatedAt: new Date(),
-      })
-      .where(eq(processingJobs.id, payload.jobId))
+    // Update job status to processing using secure queries
+    const context = secureQueries.createContext(userId, requestId)
+    const updateResult = await secureQueries.update("processingJob", context, payload.jobId, {
+      status: "processing",
+      progress: 10,
+      updatedAt: new Date(),
+    })
+
+    if (!updateResult.success) {
+      console.error("Failed to update job status:", updateResult.reason)
+    }
+
+    // Log successful processing initiation
+    await auditLogger.logSuccess(
+      userId,
+      "CREATE",
+      "processingJob",
+      payload.jobId,
+      requestId,
+      {
+        operation: 'initiate_processing',
+        projectName: projectName,
+        webhookUrl: payload.webhookUrl
+      }
+    )
 
     return NextResponse.json({
       success: true,

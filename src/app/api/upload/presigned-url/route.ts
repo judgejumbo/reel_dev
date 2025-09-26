@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { auditLogger } from "@/lib/security/audit"
 // Using crypto.randomUUID() for UUID generation
 
 // For Cloudflare R2, we'll use AWS SDK v3 compatible interface
@@ -18,11 +19,13 @@ const s3Client = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const body = await request.json()
     const { filename, contentType, type } = body
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Generate unique file key
     const fileId = crypto.randomUUID()
     const fileExtension = filename.split(".").pop()
-    const key = `uploads/${session.user.id}/${type}/${fileId}.${fileExtension}`
+    const key = `uploads/${userId}/${type}/${fileId}.${fileExtension}`
 
     // Create presigned URL for upload
     const command = new PutObjectCommand({
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
       Key: key,
       ContentType: contentType,
       Metadata: {
-        userId: session.user.id,
+        userId: userId,
         uploadType: type,
         originalFilename: filename,
       },
@@ -76,6 +79,22 @@ export async function POST(request: NextRequest) {
     const uploadURL = await getSignedUrl(s3Client, command, {
       expiresIn: 604800, // 1 week (7 days * 24 hours * 60 minutes * 60 seconds)
     })
+
+    // Log successful presigned URL generation
+    await auditLogger.logSuccess(
+      userId,
+      "CREATE",
+      "upload",
+      fileId,
+      requestId,
+      {
+        operation: 'generate_presigned_url',
+        uploadType: type,
+        filename: filename,
+        contentType: contentType,
+        key: key
+      }
+    )
 
     return NextResponse.json({
       uploadURL,

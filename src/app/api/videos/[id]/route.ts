@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { secureQueries } from "@/lib/security/queries"
+import { canUserAccessVideo } from "@/lib/security/access"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
 import { eq, and } from "drizzle-orm"
@@ -21,36 +24,31 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
 
+    const { userId, requestId } = authResult
     const { id: videoId } = await params
 
     if (!videoId) {
       return NextResponse.json({ error: "Video ID required" }, { status: 400 })
     }
 
-    // Fetch the video upload and verify ownership
-    const [video] = await db
-      .select()
-      .from(videoUploads)
-      .where(and(
-        eq(videoUploads.id, videoId),
-        eq(videoUploads.userId, session.user.id)
-      ))
-
-    if (!video) {
-      return NextResponse.json({ error: "Video not found" }, { status: 404 })
+    // Check video access permissions
+    const accessResult = await canUserAccessVideo(userId, videoId, "READ", { requestId })
+    if (!accessResult.allowed) {
+      return NextResponse.json({ error: accessResult.reason || "Access denied" }, { status: 403 })
     }
 
-    // Try to find a matching processing job
-    const processingJobsList = await db
-      .select()
-      .from(processingJobs)
-      .where(eq(processingJobs.userId, video.userId))
+    // Create secure context and fetch video
+    const context = secureQueries.createContext(userId, requestId)
+    const video = await secureQueries.findById("video", context, videoId)
+
+    // Try to find a matching processing job using secure queries
+    const processingJobsList = await secureQueries.find("job", context)
 
     let matchingJob = null
     for (const job of processingJobsList) {
@@ -89,41 +87,30 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
 
+    const { userId, requestId } = authResult
     const { id: videoId } = await params
 
-    // First, fetch the video to get file URLs and verify ownership
-    const [video] = await db
-      .select({
-        id: videoUploads.id,
-        userId: videoUploads.userId,
-        mainVideoUrl: videoUploads.mainVideoUrl,
-        overlayVideoUrl: videoUploads.overlayVideoUrl,
-      })
-      .from(videoUploads)
-      .where(and(
-        eq(videoUploads.id, videoId),
-        eq(videoUploads.userId, session.user.id)
-      ))
-
-    if (!video) {
-      return NextResponse.json({ error: "Video not found" }, { status: 404 })
+    // Check video delete permissions
+    const accessResult = await canUserAccessVideo(userId, videoId, "DELETE", { requestId })
+    if (!accessResult.allowed) {
+      return NextResponse.json({ error: accessResult.reason || "Access denied" }, { status: 403 })
     }
 
-    // Fetch associated processing job if exists
-    const [processingJob] = await db
-      .select({
-        id: processingJobs.id,
-        outputUrl: processingJobs.outputUrl,
-        thumbnailUrl: processingJobs.thumbnailUrl,
-      })
-      .from(processingJobs)
-      .where(eq(processingJobs.userId, video.userId))
+    // Create secure context and fetch video
+    const context = secureQueries.createContext(userId, requestId)
+    const video = await secureQueries.findById("video", context, videoId)
+
+    // Fetch associated processing job if exists using secure queries
+    const processingJobsList = await secureQueries.find("job", context)
+    const processingJob = processingJobsList.find(job =>
+      job.projectName?.includes(video.id.slice(0, 8))
+    )
 
     // Delete from R2 bucket
     const filesToDelete: string[] = []
@@ -184,21 +171,11 @@ export async function DELETE(
       }
     }
 
-    // Delete from database (cascade will handle related records)
-    // Delete clip settings first
-    await db
-      .delete(clipSettings)
-      .where(eq(clipSettings.videoUploadId, videoId))
-
-    // Delete processing job if exists
-    if (processingJob) {
-      await db
-        .delete(processingJobs)
-        .where(eq(processingJobs.id, processingJob.id))
-    }
-
-    // Finally delete the video upload record
-    await db.delete(videoUploads).where(eq(videoUploads.id, videoId))
+    // Delete using secure delete with cascading
+    await secureQueries.delete("video", context, videoId, {
+      deleteRelated: true,
+      relatedResources: ["clipSettings", "processingJobs"]
+    })
 
     return NextResponse.json({ success: true, message: "Video deleted successfully" })
   } catch (error) {

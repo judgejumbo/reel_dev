@@ -1,39 +1,40 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { processingJobs } from "@/lib/schema"
-import { eq } from "drizzle-orm"
+import { requireAuth } from "@/middleware/auth-guard"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const { jobId } = await params
 
-    // Get processing job from database
-    const result = await db
-      .select()
-      .from(processingJobs)
-      .where(eq(processingJobs.id, jobId))
-      .limit(1)
-
-    const job = result[0]
+    // Use secure queries to get processing job with automatic ownership verification
+    const context = secureQueries.createContext(userId, requestId)
+    const job = await secureQueries.findById("processingJob", context, jobId)
 
     if (!job) {
-      return NextResponse.json({ error: "Job not found" }, { status: 404 })
+      return NextResponse.json({ error: "Job not found or access denied" }, { status: 404 })
     }
 
-    // Check if user owns this job
-    if (job.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
+    // Log successful job status access
+    await auditLogger.logSuccess(
+      userId,
+      "READ",
+      "processingJob",
+      jobId,
+      requestId,
+      { operation: 'get_job_status', status: job.status }
+    )
 
     return NextResponse.json({
       id: job.id,

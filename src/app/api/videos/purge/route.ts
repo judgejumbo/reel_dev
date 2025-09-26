@@ -1,40 +1,52 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
 import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
 import { eq, inArray } from "drizzle-orm"
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
 
-    console.log(`🗑️  Starting database purge for user: ${session.user.id}`)
+    const { userId, requestId } = authResult
 
-    // Delete all clip settings for this user's videos first
-    const userVideos = await db
-      .select({ id: videoUploads.id })
-      .from(videoUploads)
-      .where(eq(videoUploads.userId, session.user.id))
+    console.log(`🗑️  Starting database purge for user: ${userId}`)
+
+    // Log critical operation
+    await auditLogger.logSuccess(
+      userId,
+      "DELETE",
+      "video",
+      undefined,
+      requestId,
+      { operation: 'purge_all_user_data', severity: 'critical' }
+    )
+
+    // Use secure context for bulk operations
+    const context = secureQueries.createContext(userId, requestId)
+
+    // Get all user's videos for bulk deletion
+    const userVideos = await secureQueries.find("video", context)
 
     if (userVideos.length > 0) {
       const videoIds = userVideos.map(v => v.id)
-      await db.delete(clipSettings).where(inArray(clipSettings.videoUploadId, videoIds))
+      const bulkResult = await secureQueries.bulkDelete("video", context, videoIds)
+
+      console.log(`✓ Deleted ${bulkResult.deletedCount} videos and related records`)
+      if (bulkResult.failedIds.length > 0) {
+        console.log(`⚠️  Failed to delete ${bulkResult.failedIds.length} videos`)
+      }
+    } else {
+      console.log("✓ No videos found for user")
     }
-    console.log("✓ Deleted user's clip settings")
 
-    // Delete all processing jobs for this user
-    await db.delete(processingJobs).where(eq(processingJobs.userId, session.user.id))
-    console.log("✓ Deleted user's processing jobs")
-
-    // Delete all video uploads for this user
-    await db.delete(videoUploads).where(eq(videoUploads.userId, session.user.id))
-    console.log("✓ Deleted user's video uploads")
-
-    console.log(`✅ Database purge complete for user: ${session.user.id}`)
+    console.log(`✅ Database purge complete for user: ${userId}`)
 
     return NextResponse.json({
       success: true,
@@ -42,6 +54,23 @@ export async function DELETE(request: NextRequest) {
     })
   } catch (error) {
     console.error("❌ Error purging user database:", error)
+
+    // Log failure
+    try {
+      const { userId, requestId } = await requireAuth(request)
+      await auditLogger.logFailure(
+        "DELETE",
+        "video",
+        error instanceof Error ? error.message : "Purge operation failed",
+        userId,
+        undefined,
+        undefined,
+        requestId
+      )
+    } catch {
+      // Ignore audit errors during error handling
+    }
+
     return NextResponse.json(
       { error: "Failed to purge database" },
       { status: 500 }

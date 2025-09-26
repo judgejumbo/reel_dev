@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { requireAuth } from "@/middleware/auth-guard"
+import { auditLogger } from "@/lib/security/audit"
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
@@ -16,10 +17,13 @@ const s3Client = new S3Client({
 // Initiate chunked upload
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const body = await request.json()
     const { filename, contentType, type, chunks } = body
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Generate unique file key
     const fileId = crypto.randomUUID()
     const fileExtension = filename.split(".").pop()
-    const key = `uploads/${session.user.id}/${type}/${fileId}.${fileExtension}`
+    const key = `uploads/${userId}/${type}/${fileId}.${fileExtension}`
 
     // Create multipart upload
     const createCommand = new CreateMultipartUploadCommand({
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest) {
       Key: key,
       ContentType: contentType,
       Metadata: {
-        userId: session.user.id,
+        userId: userId,
         uploadType: type,
         originalFilename: filename,
       },
@@ -74,6 +78,22 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Log successful chunked upload initiation
+    await auditLogger.logSuccess(
+      userId,
+      "CREATE",
+      "upload",
+      fileId,
+      requestId,
+      {
+        operation: 'initiate_chunked_upload',
+        uploadType: type,
+        filename: filename,
+        chunks: chunks,
+        key: key
+      }
+    )
+
     return NextResponse.json({
       uploadId: UploadId,
       key,
@@ -92,10 +112,13 @@ export async function POST(request: NextRequest) {
 // Complete chunked upload
 export async function PUT(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const body = await request.json()
     const { uploadId, key, parts } = body
@@ -113,7 +136,7 @@ export async function PUT(request: NextRequest) {
       Key: key,
       UploadId: uploadId,
       MultipartUpload: {
-        Parts: parts.map((part: any) => ({
+        Parts: parts.map((part: { etag: string; partNumber: number }) => ({
           ETag: part.etag,
           PartNumber: part.partNumber,
         })),
@@ -121,6 +144,20 @@ export async function PUT(request: NextRequest) {
     })
 
     const result = await s3Client.send(completeCommand)
+
+    // Log successful chunked upload completion
+    await auditLogger.logSuccess(
+      userId,
+      "UPDATE",
+      "upload",
+      key,
+      requestId,
+      {
+        operation: 'complete_chunked_upload',
+        uploadId: uploadId,
+        partsCount: parts.length
+      }
+    )
 
     return NextResponse.json({
       success: true,
@@ -139,10 +176,13 @@ export async function PUT(request: NextRequest) {
 // Abort chunked upload
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Use enhanced authentication with rate limiting
+    const authResult = await requireAuth(request)
+    if (authResult.response) {
+      return authResult.response
     }
+
+    const { userId, requestId } = authResult
 
     const { searchParams } = new URL(request.url)
     const uploadId = searchParams.get("uploadId")
@@ -163,6 +203,19 @@ export async function DELETE(request: NextRequest) {
     })
 
     await s3Client.send(abortCommand)
+
+    // Log successful chunked upload abort
+    await auditLogger.logSuccess(
+      userId,
+      "DELETE",
+      "upload",
+      key,
+      requestId,
+      {
+        operation: 'abort_chunked_upload',
+        uploadId: uploadId
+      }
+    )
 
     return NextResponse.json({
       success: true,

@@ -3,8 +3,24 @@ import { db } from "@/lib/db"
 import { processingJobs } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 import { withWebhookAuth, checkWebhookRateLimit } from "@/lib/webhook-security"
+import { auditLogger } from "@/lib/security/audit"
 
-export const POST = withWebhookAuth(async (request: NextRequest, body: any) => {
+interface WebhookBody {
+  jobId?: string
+  status?: string
+  progress?: number
+  resultUrl?: string
+  result_url?: string
+  outputUrl?: string
+  output_url?: string
+  url?: string
+  metadata?: {
+    thumbnailUrl?: string
+  }
+  error?: string
+}
+
+export const POST = withWebhookAuth(async (request: NextRequest, body: WebhookBody) => {
   try {
     // Rate limiting: 5 requests per minute per IP
     const clientIP = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown"
@@ -90,6 +106,22 @@ export const POST = withWebhookAuth(async (request: NextRequest, body: any) => {
 
     // Log update for debugging
     console.log(`Processing job ${jobId} updated:`, { status, progress, resultUrl, thumbnailUrl: metadata?.thumbnailUrl, error })
+
+    // Log successful webhook processing
+    await auditLogger.logSuccess(
+      undefined, // No specific user for webhook
+      "UPDATE",
+      "processingJob",
+      jobId,
+      undefined, // No request ID for webhook
+      {
+        operation: 'webhook_job_complete',
+        status: status,
+        progress: progress,
+        hasOutput: !!resultUrl,
+        source: 'n8n_webhook'
+      }
+    )
 
     return NextResponse.json({
       success: true,

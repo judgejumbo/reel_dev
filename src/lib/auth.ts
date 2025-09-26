@@ -9,7 +9,8 @@ import { eq } from "drizzle-orm"
 
 const loginSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(6).optional(),
+  magicLinkToken: z.string().optional(),
 })
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -25,10 +26,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        magicLinkToken: { label: "Magic Link Token", type: "text" },
       },
       async authorize(credentials) {
         try {
-          const { email, password } = loginSchema.parse(credentials)
+          const { email, password, magicLinkToken } = loginSchema.parse(credentials)
 
           // Fetch user from database
           const userResult = await db
@@ -39,23 +41,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           const user = userResult[0]
 
-          if (!user || !user.password) {
+          if (!user) {
             return null
           }
 
-          // Verify password
-          const passwordMatch = await bcrypt.compare(password, user.password)
-
-          if (!passwordMatch) {
-            return null
+          // Handle magic link authentication
+          if (magicLinkToken) {
+            // For magic link, we already validated the token in the API route
+            // so we can trust this authentication
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+            }
           }
 
-          // Return user object for session
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
+          // Handle password authentication
+          if (password && user.password) {
+            const passwordMatch = await bcrypt.compare(password, user.password)
+
+            if (!passwordMatch) {
+              return null
+            }
+
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+            }
           }
+
+          // Neither magic link nor valid password provided
+          return null
+
         } catch (error) {
           console.error("Auth error:", error)
           return null

@@ -8,6 +8,35 @@ import { sendPasswordResetEmail, sendMagicLinkEmail, sendEmailVerificationEmail 
 import bcrypt from "bcryptjs"
 import { revalidatePath } from "next/cache"
 
+// Simple in-memory rate limiting for development
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+function isRateLimited(email: string): boolean {
+  const now = Date.now()
+  const key = email.toLowerCase()
+  const limit = rateLimitMap.get(key)
+
+  // Reset if time window has passed
+  if (limit && now > limit.resetTime) {
+    rateLimitMap.delete(key)
+  }
+
+  const currentLimit = rateLimitMap.get(key)
+  if (!currentLimit) {
+    // First request in this window
+    rateLimitMap.set(key, { count: 1, resetTime: now + 60 * 60 * 1000 }) // 1 hour window
+    return false
+  }
+
+  if (currentLimit.count >= 3) {
+    // Max 3 requests per hour
+    return true
+  }
+
+  currentLimit.count++
+  return false
+}
+
 /**
  * Request password reset - sends email with reset link
  */
@@ -51,6 +80,11 @@ export async function requestPasswordReset(email: string) {
  */
 export async function requestMagicLink(email: string) {
   try {
+    // Check rate limiting
+    if (isRateLimited(email)) {
+      throw new Error("Too many requests. Please wait an hour before requesting another magic link.")
+    }
+
     // Find user by email
     const userResults = await db
       .select()

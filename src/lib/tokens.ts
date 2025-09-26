@@ -2,7 +2,7 @@ import { randomBytes, createHash } from "crypto"
 import { db } from "./db"
 import { authTokens } from "./schema"
 import { eq, and, gte, isNull } from "drizzle-orm"
-import type { AuthToken, NewAuthToken } from "./schema"
+import type { AuthToken } from "./schema"
 
 export type TokenType = "PASSWORD_RESET" | "MAGIC_LINK" | "EMAIL_VERIFY"
 

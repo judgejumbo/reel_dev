@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/middleware/auth-guard"
+import { auth } from "@/lib/auth"
 import { secureQueries } from "@/lib/security/queries"
-import { canUserAccessVideo } from "@/lib/security/access"
-import { auditLogger } from "@/lib/security/audit"
-import { db } from "@/lib/db"
-import { videoUploads, processingJobs, clipSettings } from "@/lib/schema"
-import { eq, and } from "drizzle-orm"
-import { S3Client, DeleteObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3"
+import { S3Client, DeleteObjectsCommand } from "@aws-sdk/client-s3"
 
 // Initialize S3 client for R2
 const S3 = new S3Client({
@@ -24,23 +19,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Use enhanced authentication with rate limiting
-    const authResult = await requireAuth(request)
-    if (authResult.response) {
-      return authResult.response
+    // Check authentication using NextAuth.js
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { userId, requestId } = authResult
+    const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const { id: videoId } = await params
 
     if (!videoId) {
       return NextResponse.json({ error: "Video ID required" }, { status: 400 })
-    }
-
-    // Check video access permissions
-    const accessResult = await canUserAccessVideo(userId, videoId, "READ", { requestId })
-    if (!accessResult.allowed) {
-      return NextResponse.json({ error: accessResult.reason || "Access denied" }, { status: 403 })
     }
 
     // Create secure context and fetch video
@@ -87,19 +77,18 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Use enhanced authentication with rate limiting
-    const authResult = await requireAuth(request)
-    if (authResult.response) {
-      return authResult.response
+    // Check authentication using NextAuth.js
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { userId, requestId } = authResult
+    const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const { id: videoId } = await params
 
-    // Check video delete permissions
-    const accessResult = await canUserAccessVideo(userId, videoId, "DELETE", { requestId })
-    if (!accessResult.allowed) {
-      return NextResponse.json({ error: accessResult.reason || "Access denied" }, { status: 403 })
+    if (!videoId) {
+      return NextResponse.json({ error: "Video ID required" }, { status: 400 })
     }
 
     // Create secure context and fetch video

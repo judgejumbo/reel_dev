@@ -648,3 +648,13 @@ complained@resend.dev            # Test spam handling
 - **Zero Tax Overhead**: No need for tax compliance infrastructure
 - **Simplified Operations**: All-inclusive pricing with no hidden costs
 - **Focus on Core Product**: More time for video processing optimization
+
+## Post-MVP Enhancements
+
+### TODO: Investigate Video Library Duplicate Display Issue
+- **Issue**: Potential duplicate video display in library after N8N workflow completion
+- **Root Cause**: Time-based video-to-job matching algorithm uses 5-minute window (src/app/api/videos/route.ts:38-43)
+- **Impact**: May cause false matches when multiple videos uploaded within 5 minutes
+- **Solution**: Replace time-based matching with direct foreign key relationship (video_id in processing_jobs table)
+- **Priority**: Post-MVP enhancement (not consistently reproducible, may be operator error)
+- **Effort**: ~1-2 days (database migration + API updates)

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { secureQueries } from "@/lib/security/queries"
+import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
 import { processingJobs } from "@/lib/schema"
 
@@ -18,6 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const body = await request.json()
     const { payload, projectName, webhookUrl } = body
 
@@ -86,21 +90,21 @@ export async function POST(request: NextRequest) {
 
     // Update job status to processing using secure queries
     const context = secureQueries.createContext(userId, requestId)
-    const updateResult = await secureQueries.update("processingJob", context, payload.jobId, {
+    const updateResult = await secureQueries.update("job", context, payload.jobId, {
       status: "processing",
       progress: 10,
       updatedAt: new Date(),
     })
 
-    if (!updateResult.success) {
-      console.error("Failed to update job status:", updateResult.reason)
+    if (!updateResult) {
+      console.error("Failed to update job status")
     }
 
     // Log successful processing initiation
     await auditLogger.logSuccess(
       userId,
       "CREATE",
-      "processingJob",
+      "job",
       payload.jobId,
       requestId,
       {

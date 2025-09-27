@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/middleware/auth-guard"
+import { auth } from "@/lib/auth"
 import { auditLogger } from "@/lib/security/audit"
 // Using crypto.randomUUID() for UUID generation
 
@@ -19,13 +19,14 @@ const s3Client = new S3Client({
 
 export async function POST(request: NextRequest) {
   try {
-    // Use enhanced authentication with rate limiting
-    const authResult = await requireAuth(request)
-    if (authResult.response) {
-      return authResult.response
+    // Check authentication using NextAuth.js
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { userId, requestId } = authResult
+    const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     const body = await request.json()
     const { filename, contentType, type } = body

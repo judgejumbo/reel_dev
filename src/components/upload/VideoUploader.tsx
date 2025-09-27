@@ -153,8 +153,10 @@ export default function VideoUploader({ type, label, accept = ["video/*"] }: Vid
         }),
       })
 
-      if (completeResponse.ok) {
-        const result = await completeResponse.json()
+      // Check if upload was successful by looking at response content, not just HTTP status
+      const result = await completeResponse.json()
+
+      if (completeResponse.ok || result.success) {
         if (type === "main" && result.videoUploadId) {
           // Update the main video with the database record ID
           // Remove the File object to prevent ReactPlayer from creating blob URLs

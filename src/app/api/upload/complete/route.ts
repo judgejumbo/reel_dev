@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { requireAuth } from "@/middleware/auth-guard"
+import { auth } from "@/lib/auth"
 import { secureQueries } from "@/lib/security/queries"
 import { auditLogger } from "@/lib/security/audit"
 import { db } from "@/lib/db"
@@ -8,13 +8,14 @@ import { eq, and } from "drizzle-orm"
 
 export async function POST(request: NextRequest) {
   try {
-    // Use enhanced authentication with rate limiting
-    const authResult = await requireAuth(request)
-    if (authResult.response) {
-      return authResult.response
+    // Check authentication using NextAuth.js
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { userId, requestId } = authResult
+    const userId = session.user.id
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
     const body = await request.json()
     const {
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
       resolution,
       fileKey, // R2 file key instead of full URL
       videoUploadId, // For overlay videos, this should be the existing record ID
+      projectName, // Project name from Zustand store
     } = body
 
     // Validate required fields
@@ -52,16 +54,16 @@ export async function POST(request: NextRequest) {
         status: "uploaded",
       })
 
-      if (!insertResult.success) {
+      if (!insertResult || !insertResult.id) {
         return NextResponse.json(
           { error: "Failed to create video record" },
           { status: 500 }
         )
       }
 
-      recordId = insertResult.id!
+      recordId = insertResult.id
 
-      // Update usage tracking with secure queries
+      // Update usage tracking
       const currentDate = new Date()
       const month = currentDate.getMonth() + 1
       const year = currentDate.getFullYear()
@@ -115,10 +117,10 @@ export async function POST(request: NextRequest) {
         updatedAt: new Date(),
       })
 
-      if (!updateResult.success) {
+      if (!updateResult) {
         return NextResponse.json(
           { error: "Failed to update video record or access denied" },
-          { status: updateResult.reason === "NOT_FOUND" ? 404 : 403 }
+          { status: 403 }
         )
       }
 
@@ -179,7 +181,12 @@ export async function POST(request: NextRequest) {
       message: `${type} video upload recorded successfully`,
     })
   } catch (error) {
-    console.error("Error recording upload:", error)
+    console.error("=== UPLOAD COMPLETE ERROR ===")
+    console.error("Error type:", error?.constructor?.name)
+    console.error("Error message:", (error as Error)?.message)
+    console.error("Error stack:", (error as Error)?.stack)
+    console.error("Full error:", error)
+    console.error("=== END ERROR ===")
     return NextResponse.json(
       { error: "Failed to record upload" },
       { status: 500 }

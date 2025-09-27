@@ -1,5 +1,5 @@
 import { db } from "./db"
-import { videoUploads, processingJobs, clipSettings, userSubscriptions, usageTracking } from "./schema"
+import { videoUploads, processingJobs, usageTracking } from "./schema"
 import { eq, and } from "drizzle-orm"
 
 // Security context for all database operations

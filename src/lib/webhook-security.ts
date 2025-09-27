@@ -87,7 +87,7 @@ export function verifyWebhookOrigin(request: NextRequest): {
 export async function verifyWebhookSignature(request: NextRequest): Promise<{
   isValid: boolean
   error?: string
-  body?: any
+  body?: unknown
 }> {
   try {
     // Verify origin first
@@ -189,7 +189,7 @@ export async function verifyWebhookSignature(request: NextRequest): Promise<{
  * Middleware wrapper for webhook signature verification
  */
 export function withWebhookAuth<T>(
-  handler: (request: NextRequest, body: any) => Promise<T>
+  handler: (request: NextRequest, body: unknown) => Promise<T>
 ) {
   return async (request: NextRequest): Promise<T | Response> => {
     const verification = await verifyWebhookSignature(request)

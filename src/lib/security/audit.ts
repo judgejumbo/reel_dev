@@ -355,7 +355,7 @@ export async function logSecurityEvent(
   error?: string,
   violation?: SecurityViolationType,
   requestId?: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   if (success) {
     await auditLogger.logSuccess(userId, operation, resource, resourceId, requestId, metadata)

@@ -27,7 +27,7 @@ export interface AuthGuardResult {
 }
 
 // Session cache for performance (cache sessions for 1 minute)
-const sessionCache = new Map<string, { session: any; expires: number }>()
+const sessionCache = new Map<string, { session: unknown; expires: number }>()
 const SESSION_CACHE_TTL = 60 * 1000 // 1 minute
 
 /**
@@ -89,7 +89,7 @@ export class AuthGuard {
   /**
    * Get session with caching for performance
    */
-  private static async getSessionWithCache(request: NextRequest): Promise<any> {
+  private static async getSessionWithCache(request: NextRequest): Promise<unknown> {
     // Extract session token from cookies or headers
     const sessionToken = this.extractSessionToken(request)
 

@@ -1,20 +1,16 @@
 import {
   SecureResourceType,
   SecurityOperation,
-  PermissionLevel,
   AccessControlResult,
-  UserRole,
-  SecurityPolicy
+  UserRole
 } from "./types"
 import {
   getPermissionLevel,
   isOperationAllowed,
-  getRequiredAccessLevel,
   RESOURCE_ACCESS_CONFIG,
   DEFAULT_SECURITY_POLICIES
 } from "./permissions"
 import {
-  verifyResourceOwnership,
   verifyVideoOwnership,
   verifyJobOwnership,
   verifySubscriptionOwnership

@@ -4,17 +4,14 @@ import {
   processingJobs,
   clipSettings,
   userSubscriptions,
-  usageTracking,
-  users
+  usageTracking
 } from "@/lib/schema"
 import { eq, and, inArray, desc } from "drizzle-orm"
 import { auditLogger } from "./audit"
 import {
   SecureResourceType,
-  SecurityOperation,
   SecurityError,
-  OwnershipViolationError,
-  UnauthorizedError
+  OwnershipViolationError
 } from "./types"
 
 // Resource type to table mapping
@@ -39,8 +36,8 @@ interface SecureQueryContext {
 export async function secureFind<T extends SecureResourceType>(
   resourceType: T,
   context: SecureQueryContext,
-  filters?: Record<string, any>
-): Promise<any[]> {
+  filters?: Record<string, unknown>
+): Promise<unknown[]> {
   const { userId, requestId } = context
   const table = RESOURCE_TABLES[resourceType]
 
@@ -117,7 +114,7 @@ export async function secureFindById<T extends SecureResourceType>(
   resourceType: T,
   context: SecureQueryContext,
   resourceId: string
-): Promise<any> {
+): Promise<unknown> {
   const { userId, requestId } = context
   const table = RESOURCE_TABLES[resourceType]
 
@@ -196,8 +193,8 @@ export async function secureUpdate<T extends SecureResourceType>(
   resourceType: T,
   context: SecureQueryContext,
   resourceId: string,
-  updateData: Record<string, any>
-): Promise<any> {
+  updateData: Record<string, unknown>
+): Promise<unknown> {
   const { userId, requestId, skipOwnershipCheck } = context
   const table = RESOURCE_TABLES[resourceType]
 
@@ -287,7 +284,7 @@ export async function secureDelete<T extends SecureResourceType>(
     deleteRelated?: boolean
     relatedResources?: string[]
   }
-): Promise<any> {
+): Promise<unknown> {
   const { userId, requestId, skipOwnershipCheck } = context
   const table = RESOURCE_TABLES[resourceType]
 
@@ -379,8 +376,8 @@ export async function secureDelete<T extends SecureResourceType>(
 export async function secureInsert<T extends SecureResourceType>(
   resourceType: T,
   context: SecureQueryContext,
-  data: Record<string, any>
-): Promise<any> {
+  data: Record<string, unknown>
+): Promise<unknown> {
   const { userId, requestId } = context
   const table = RESOURCE_TABLES[resourceType]
 
@@ -494,7 +491,7 @@ export async function secureBulkDelete<T extends SecureResourceType>(
 
     // Delete only the owned resources
     if (ownedIds.length > 0) {
-      const result = await db
+      await db
         .delete(table)
         .where(
           and(

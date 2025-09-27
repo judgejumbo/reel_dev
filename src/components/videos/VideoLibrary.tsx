@@ -95,14 +95,11 @@ export default function VideoLibrary({ limit, compact = false }: VideoLibraryPro
   }, [dataLoaded])
 
   const fetchVideos = async () => {
-    console.log("Fetching videos (authentication-based)")
     setIsLoading(true)
     try {
       const response = await fetch('/api/videos')
-      console.log("Response status:", response.status)
       if (response.ok) {
         const data = await response.json()
-        console.log("Fetched videos:", data)
         setVideos(data)
         setDataLoaded(true)
       } else {
@@ -111,7 +108,6 @@ export default function VideoLibrary({ limit, compact = false }: VideoLibraryPro
     } catch (error) {
       console.error("Failed to fetch videos:", error)
     } finally {
-      console.log("Setting loading to false")
       setIsLoading(false)
     }
   }
